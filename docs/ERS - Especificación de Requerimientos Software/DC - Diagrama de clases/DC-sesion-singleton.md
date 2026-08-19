@@ -11,7 +11,6 @@ classDiagram
 
     class SessionManager {
         <<Singleton>>
-        -static object _lock$
         -static SessionManager _session$
         -Usuario _usuario
         -DateTime _fechaInicio
@@ -78,7 +77,6 @@ classDiagram
 ```csharp
 public class SessionManager
 {
-    private static object _lock = new object();
     private static SessionManager _session;
 
     public Usuario Usuario { get; set; }
@@ -97,34 +95,31 @@ public class SessionManager
 
     public static void Login(Usuario usuario)
     {
-        lock (_lock)
+        if (_session == null)
         {
-            if (_session == null)
-            {
-                _session = new SessionManager();
-                _session.Usuario = usuario;
-                _session.FechaInicio = DateTime.Now;
-            }
-            else
-            {
-                throw new Exception("Sesión ya iniciada");
-            }
+            _session = new SessionManager();
+            _session.Usuario = usuario;
+            _session.FechaInicio = DateTime.Now;
+        }
+        else
+        {
+            throw new Exception("Sesión ya iniciada");
         }
     }
 
     public static void Logout()
     {
-        lock (_lock)
-        {
-            if (_session != null) _session = null;
-            else throw new Exception("Sesión no iniciada");
-        }
+        if (_session != null) _session = null;
+        else throw new Exception("Sesión no iniciada");
     }
 }
 ```
 
 ## Notas de diseño
 
+- **Sin sincronización de hilos**: el Login y el Logout no usan `lock`. La
+  aplicación es de escritorio y mono-hilo: sólo el hilo de la interfaz crea o
+  destruye la sesión, por lo que no hay dos hilos compitiendo por la instancia.
 - **Un Singleton por proceso, no por usuario**: el diseño es válido porque el
   sistema es una aplicación de escritorio mono-usuario. En una aplicación web
   sería un error grave, porque todos los usuarios compartirían la sesión.

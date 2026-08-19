@@ -7,7 +7,7 @@ sequenceDiagram
     participant BE as UsuarioBE
     participant DAL as UsuarioDAL
     participant Enc as EncriptadorService
-    participant Sess as SessionManagerService
+    participant Sess as SessionManager
 
     Usuario->>ML: IngresarAlSistema()
     ML-->>Usuario: MostrarInterfazLogin()

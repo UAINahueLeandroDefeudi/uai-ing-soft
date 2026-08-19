@@ -58,7 +58,7 @@ sequenceDiagram
 sequenceDiagram
     actor Usuario
     participant UI as FrmUsuarios
-    participant Sess as SessionManagerService
+    participant Sess as SessionManager
     participant U as UsuarioBE
     participant Adm as Familia Administrador
     participant Seg as Familia Seguridad

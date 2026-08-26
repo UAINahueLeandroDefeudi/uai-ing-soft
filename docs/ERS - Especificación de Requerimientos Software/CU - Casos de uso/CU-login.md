@@ -10,12 +10,8 @@ flowchart LR
     subgraph SISTEMA[Sistema]
         CU01(["CU-01 Iniciar sesión"])
         CU02(["CU-02 Validar credenciales"])
-        CU03(["CU-03 Cargar permisos<br/>del usuario"])
         CU04(["CU-04 Abrir sesión"])
-        CU05(["CU-05 Registrar en bitácora"])
         CU06(["CU-06 Bloquear usuario<br/>por intentos fallidos"])
-        CU07(["CU-07 Cerrar sesión"])
-        CU08(["CU-08 Administrar<br/>familias y patentes"])
     end
 
     U --- CU01

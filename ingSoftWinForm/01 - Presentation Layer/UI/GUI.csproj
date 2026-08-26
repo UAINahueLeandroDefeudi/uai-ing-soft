@@ -7,6 +7,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Event\" />
     <Folder Include="Login\" />
     <Folder Include="Profile\" />
   </ItemGroup>

@@ -42,5 +42,19 @@ namespace DAL
             connection.Open();
             return command.ExecuteNonQuery();
         }
+
+        /// <summary>
+        /// Para los INSERT que necesitan recuperar el identity recién generado
+        /// (INSERT ... ; SELECT SCOPE_IDENTITY()).
+        /// </summary>
+        public object? ExecuteScalar(string query, CommandType commandType, SqlParameter[] parameters)
+        {
+            using var connection = new SqlConnection(connectionString);
+            using var command = new SqlCommand(query, connection) { CommandType = commandType };
+            command.Parameters.AddRange(parameters);
+
+            connection.Open();
+            return command.ExecuteScalar();
+        }
     }
 }

@@ -2,19 +2,20 @@
 
 Aplicación WinForms (.NET 8) del CU-01 *Iniciar sesión*, organizada en capas.
 Este documento explica **la base de datos**, **cómo se crean los usuarios**, los
-**diagramas de secuencia de login y logout**, cómo funciona el **SessionManager**
-y cómo funciona el esquema de **formularios MDI**.
+**diagramas de secuencia de login y logout**, cómo funciona el **SessionManager**,
+cómo funciona el esquema de **formularios MDI** y cómo funciona la **bitácora
+de auditoría**.
 
 ---
 
 ## 1. Arquitectura en capas
 
 ```
-01 - Presentation Layer/UI      →  GUI.csproj        (net8.0-windows)  FrmLogin, FrmMain, FrmLogout, FrmProfile
-02 - Service Layer/Services     →  Services.csproj   (net8.0)          HashManager, SessionManager
-03 - Business Logic Layer/BLL   →  BLL.csproj        (net8.0)          SessionBLL
-04 - Business Entity/BE         →  BE.csproj         (net8.0)          User, LoginResult, LoginStatus, mappers, bases
-05 - Data Access Layer/DAL      →  DAL.csproj        (net8.0)          DatabaseHelper, IUserDAL, UserDAL
+01 - Presentation Layer/UI      →  GUI.csproj        (net8.0-windows)  FrmLogin, FrmMain, FrmLogout, FrmProfile, FrmEvent
+02 - Service Layer/Services     →  Services.csproj   (net8.0)          HashManager, SessionManager, BitacoraManager
+03 - Business Logic Layer/BLL   →  BLL.csproj        (net8.0)          SessionBLL, BitacoraBLL
+04 - Business Entity/BE         →  BE.csproj         (net8.0)          User, Bitacora, LoginResult, enums, mappers, bases
+05 - Data Access Layer/DAL      →  DAL.csproj        (net8.0)          DatabaseHelper, IUserDAL/UserDAL, IBitacoraDAL/BitacoraDAL
 ```
 
 Dependencias entre proyectos (`ProjectReference`):
@@ -61,7 +62,7 @@ Expone solo dos métodos: `ExecuteDataSet(...)` y `ExecuteNonQuery(...)`, ambos 
 
 ### Tabla `[dbo].[User]`
 
-Es la única tabla del modelo por ahora. Script: `../sql/01_create_table_User.sql`.
+Script: `../sql/01_create_table_User.sql`.
 
 | Columna | Tipo | Notas |
 |---|---|---|
@@ -116,6 +117,15 @@ sqlcmd -S localhost\SQLEXPRESS -E -C -I -d IF_DB -i sql/01_create_table_User.sql
 
 > `01_create_table_User.sql` empieza con un `DROP TABLE` condicional: volver a correrlo
 > borra todos los usuarios cargados.
+
+Crear la tabla de bitácora:
+
+```bash
+sqlcmd -S localhost\SQLEXPRESS -E -C -I -d IF_DB -i sql/03_create_table_Bitacora.sql
+```
+
+> Este, al revés, **no** dropea nada (`IF OBJECT_ID(...) IS NULL`): reejecutarlo no
+> puede borrar el historial de auditoría.
 
 ---
 
@@ -352,7 +362,128 @@ Consecuencias a tener presentes:
 
 ---
 
-## 7. Formularios MDI
+## 7. Bitácora de auditoría
+
+**RNF-Seguridad-03 del CU-01: todo intento de acceso queda auditado.** La bitácora es
+una tabla append-only: se inserta y no se modifica nunca.
+
+### Tabla `[dbo].[Bitacora]`
+
+Script: `../sql/03_create_table_Bitacora.sql`. Refleja `BE.Entity.Bitacora`.
+
+| Columna | Tipo | Notas |
+|---|---|---|
+| `id_bitacora` | `INT IDENTITY` | PK clustered. **Único nombre del modelo que no está en inglés**, por pedido del diagrama de clases |
+| `Type` | `NVARCHAR(20)` | enum `BitacoraType`: `Event` / `Error` |
+| `NameEvent` | `NVARCHAR(30)` | enum `NameEvent`: `Login`, `Logout`, `CrearUsuario`, ... |
+| `Priority` | `NVARCHAR(20)` | enum `Priority`: `Low` / `Medium` / `High` / `Critical` / `Fatal` |
+| `Detail` | `NVARCHAR(500)` | texto libre; `BitacoraManager` lo recorta a 500 |
+| `BitacoraDate` | `DATETIME2` | default `SYSDATETIME()` |
+| `IdUser` / `Email` / `FirstName` / `LastName` | `NVARCHAR` | foto del usuario, todos `string` |
+| `RolesPermisos` | `NVARCHAR(MAX)` | roles y permisos que tenía en ese momento |
+
+Tres decisiones que conviene tener presentes:
+
+- **Los enums se guardan por nombre, no por ordinal.** Una bitácora se consulta con un
+  `SELECT` suelto: `'Critical'` se lee, `4` no.
+- **No hay FK contra `[User]`.** Los datos del usuario se *copian*, no se referencian: la
+  traza tiene que sobrevivir a una baja o un renombre, y además hay filas sin usuario
+  (un login con un username que no existe).
+- **`RolesPermisos` queda vacío por ahora.** El árbol Composite de permisos todavía no
+  está implementado; el campo y el punto de llenado
+  (`BitacoraManager.AplanarRolesPermisos`) ya están listos.
+
+### Quién hace qué
+
+```
+Services.BitacoraManager   construye la entidad (EventoBitacora / ErrorBitacora)
+BLL.BitacoraBLL            la persiste, y consulta (GetAll / GetByFilter)
+DAL.BitacoraDAL            el INSERT y los SELECT
+UI.Event.FrmEvent          el visor de solo lectura
+```
+
+Ojo con el nombre del visor: **sólo la capa de UI habla de `Event`**
+(`UI.Event.FrmEvent`). La entidad, la BLL, la DAL y la tabla se siguen llamando
+`Bitacora`. Y como el namespace `UI.Event` tapa al tipo `BE.Entity.Bitacora`,
+`FrmEvent.cs` lo nombra por un alias (`using BitacoraEntity = BE.Entity.Bitacora;`).
+
+`BitacoraManager` es la pieza `Servicios.Bitacora` del diagrama de clases. Solo
+**construye** la entidad y no la persiste, porque la capa de servicios no referencia a
+DAL. Se llama `BitacoraManager` y no `Bitacora` para no chocar con `BE.Entity.Bitacora`,
+y para acompañar a `SessionManager` y `HashManager`.
+
+Cada fábrica tiene dos sobrecargas:
+
+- con `User` explícito — la que usa el login, porque en un intento fallido **todavía no
+  hay sesión abierta** y `SessionManager.GetInstance` tiraría excepción;
+- sin `User` — toma el de la sesión activa, y si no hay ninguna deja los campos vacíos.
+
+### La auditoría nunca voltea la operación auditada
+
+`BitacoraBLL.Registrar` atrapa la excepción y la manda a `Debug.WriteLine`. Si se cae la
+base, el login tiene que poder seguir devolviendo su `LoginResult` (CU-01, FA-5): un
+fallo al auditar no puede convertirse en un crash.
+
+El visor va al revés: ahí el error **sí** se avisa con un `MessageBox`, porque si no se
+puede leer no hay nada que mostrar en pantalla.
+
+### Qué registra el login
+
+Todo esto sale de `SessionBLL` (`03 - Business Logic Layer/BLL/SessionBLL.cs`):
+
+| Situación | Type | NameEvent | Priority |
+|---|---|---|---|
+| Username inexistente | `Error` | `Login` | `Medium` |
+| Usuario dado de baja | `Error` | `Login` | `Medium` |
+| Usuario bloqueado | `Error` | `Login` | `High` |
+| Credencial inválida | `Error` | `Login` | `Medium` |
+| Bloqueo automático al 3º intento | `Error` | `Login` | `Critical` |
+| FA-4: ya había una sesión abierta | `Error` | `Login` | `High` |
+| Inicio de sesión exitoso | `Event` | `Login` | `Low` |
+| Cierre de sesión | `Event` | `Logout` | `Low` |
+
+Dos cuidados en el código:
+
+- en `Logout()` el usuario se toma **antes** de `SessionManager.Logout()`, que borra la sesión;
+- el caso "username inexistente" no tiene `User`: el username tipeado va en el `Detail`.
+  **La contraseña no se registra nunca.**
+
+### Verla — `UI.Event.FrmEvent`
+
+Menú *Sesión ▸ Bitácora*. Grilla de sólo lectura con cuatro filtros:
+
+| Filtro | Control | Vacío significa |
+|---|---|---|
+| Rango de fechas | `dtpDesde` / `dtpHasta` | siempre se aplica; el “hasta” es inclusivo por día |
+| Tipo | `cboTipo` | `(todos)` → no filtra |
+| Evento | `cboEvento` | `(todos)` → no filtra |
+| Prioridad | `cboPrioridad` | `(todos)` → no filtra |
+
+Los tres combos se llenan con `System.Enum.GetValues<TEnum>()`, y guardan los valores
+del enum **en crudo** — no su texto — así que se recuperan tipados sin volver a parsear.
+
+El filtrado se resuelve en el motor, no en memoria: la bitácora crece sin techo y
+traerla entera para descartar en el cliente no escala. `BitacoraDAL.GetByFilter` usa el
+patrón `(@P IS NULL OR col = @P)` para cada enum opcional, que evita armar el `WHERE`
+concatenando texto:
+
+```sql
+WHERE [BitacoraDate] >= @From
+  AND [BitacoraDate] <  @To
+  AND (@Type      IS NULL OR [Type]      = @Type)
+  AND (@NameEvent IS NULL OR [NameEvent] = @NameEvent)
+  AND (@Priority  IS NULL OR [Priority]  = @Priority)
+```
+
+También se puede consultar directo por SQL:
+
+```bash
+sqlcmd -S localhost\SQLEXPRESS -E -C -I -W -d IF_DB -Q "SET NOCOUNT ON; SELECT id_bitacora, Type, NameEvent, Priority, BitacoraDate, FirstName, LastName, Detail FROM [dbo].[Bitacora] ORDER BY id_bitacora DESC;"
+```
+
+---
+
+## 8. Formularios MDI
 
 ### Quién es contenedor y quién no
 
@@ -412,7 +543,8 @@ abiertas dentro del menú *Ventana*, con la marca sobre la activa.
 
 | Menú | Acción |
 |---|---|
-| Perfil | `AbrirHijo<FrmProfile>()` |
+| Sesión ▸ Mi perfil | `AbrirHijo<FrmProfile>()` |
+| Sesión ▸ Bitácora | `AbrirHijo<FrmBitacora>()` |
 | Sesión ▸ Cerrar sesión | `FrmLogout` modal; si acepta → `Close()` del MDI |
 | Sesión ▸ Salir | `Close()` |
 | Ventana ▸ Cascada | `LayoutMdi(MdiLayout.Cascade)` |
@@ -441,12 +573,12 @@ graph TD
 
 ---
 
-## 8. Correr el proyecto
+## 9. Correr el proyecto
 
 ```bash
 dotnet build ingSoftWinForm/ingSoftWinForm.sln
 ```
 
 Proyecto de inicio: `GUI` (`01 - Presentation Layer/UI/GUI.csproj`). Antes del primer
-arranque hay que tener la base `IF_DB` creada, la tabla `[User]` y al menos un usuario
-hecho con `create-user.sh` — si no, no hay forma de pasar el login.
+arranque hay que tener la base `IF_DB` creada, las tablas `[User]` y `[Bitacora]`, y al
+menos un usuario hecho con `create-user.sh` — si no, no hay forma de pasar el login.

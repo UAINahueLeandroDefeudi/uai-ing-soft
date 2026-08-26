@@ -1,4 +1,5 @@
 using BLL;
+using UI.Event;
 using UI.Login;
 using UI.Profile;
 
@@ -58,6 +59,8 @@ namespace UI
         }
 
         private void MnuPerfil_Click(object sender, EventArgs e) => AbrirHijo<FrmProfile>();
+
+        private void MnuEvent_Click(object sender, EventArgs e) => AbrirHijo<FrmEvent>();
 
         private void MnuCerrarSesion_Click(object sender, EventArgs e)
         {

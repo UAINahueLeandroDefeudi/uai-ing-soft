@@ -7,6 +7,7 @@ namespace UI
         private System.Windows.Forms.MenuStrip menuStrip;
         private System.Windows.Forms.ToolStripMenuItem mnuSesion;
         private System.Windows.Forms.ToolStripMenuItem mnuPerfil;
+        private System.Windows.Forms.ToolStripMenuItem mnuEvent;
         private System.Windows.Forms.ToolStripMenuItem mnuCerrarSesion;
         private System.Windows.Forms.ToolStripSeparator sepSesion;
         private System.Windows.Forms.ToolStripMenuItem mnuSalir;
@@ -36,6 +37,7 @@ namespace UI
             this.menuStrip = new System.Windows.Forms.MenuStrip();
             this.mnuSesion = new System.Windows.Forms.ToolStripMenuItem();
             this.mnuPerfil = new System.Windows.Forms.ToolStripMenuItem();
+            this.mnuEvent = new System.Windows.Forms.ToolStripMenuItem();
             this.mnuCerrarSesion = new System.Windows.Forms.ToolStripMenuItem();
             this.sepSesion = new System.Windows.Forms.ToolStripSeparator();
             this.mnuSalir = new System.Windows.Forms.ToolStripMenuItem();
@@ -67,6 +69,7 @@ namespace UI
             //
             this.mnuSesion.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
                 this.mnuPerfil,
+                this.mnuEvent,
                 this.mnuCerrarSesion,
                 this.sepSesion,
                 this.mnuSalir});
@@ -80,6 +83,13 @@ namespace UI
             this.mnuPerfil.Size = new System.Drawing.Size(180, 22);
             this.mnuPerfil.Text = "Mi &perfil";
             this.mnuPerfil.Click += new System.EventHandler(this.MnuPerfil_Click);
+            //
+            // mnuEvent
+            //
+            this.mnuEvent.Name = "mnuEvent";
+            this.mnuEvent.Size = new System.Drawing.Size(180, 22);
+            this.mnuEvent.Text = "&Bitácora";
+            this.mnuEvent.Click += new System.EventHandler(this.MnuEvent_Click);
             //
             // mnuCerrarSesion
             //

@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <Folder Include="Login\" />
+    <Folder Include="Profile\" />
   </ItemGroup>
 
   <PropertyGroup>

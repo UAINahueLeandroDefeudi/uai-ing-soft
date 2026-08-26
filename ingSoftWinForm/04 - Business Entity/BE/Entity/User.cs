@@ -1,0 +1,20 @@
+using BE.Base;
+
+namespace BE.Entity
+{
+    public class User : BaseGuidEntity
+    {
+        public string Username { get; set; } = string.Empty;
+        public byte[] PasswordHash { get; set; } = Array.Empty<byte>();
+        public byte[] Salt { get; set; } = Array.Empty<byte>();
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        public string? Email { get; set; }
+        public int FailedAttempts { get; set; }
+        public bool IsBlocked { get; set; }
+        public bool IsActive { get; set; }
+        public DateTime? LastLoginAt { get; set; }
+
+        public override string ToString() => Username;
+    }
+}

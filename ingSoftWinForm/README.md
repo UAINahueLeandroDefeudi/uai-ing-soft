@@ -210,20 +210,16 @@ tipeada es un caso de negocio esperable, no excepcional. `LoginStatus` = `Succes
 ```mermaid
 sequenceDiagram
     actor U as Usuario
-    participant P as Program
     participant FL as FrmLogin
     participant BLL as SessionBLL
     participant DAL as UserDAL
     participant H as HashManager
     participant S as SessionManager
-    participant FM as FrmMain MDI
 
-    P->>FL: ShowDialog()
     U->>FL: username / password + Aceptar
     FL->>+BLL: Login(username, password)
 
     BLL->>+DAL: GetByUsername(username)
-    DAL->>DB: SELECT * FROM [User] WHERE Username = @Username
     DAL-->>-BLL: User? (UserMapper.MapToEntity)
 
     alt user == null
@@ -260,7 +256,6 @@ sequenceDiagram
 
     alt Status == Success
         FL-->>P: DialogResult.OK
-        P->>FM: Application.Run(new FrmMain())
         FM->>FM: AbrirHijo de FrmProfile
     else
         FL-->>U: lblError + limpia el campo password

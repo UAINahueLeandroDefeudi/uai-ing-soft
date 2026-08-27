@@ -214,7 +214,6 @@ sequenceDiagram
     participant FL as FrmLogin
     participant BLL as SessionBLL
     participant DAL as UserDAL
-    participant DB as IF_DB
     participant H as HashManager
     participant S as SessionManager
     participant FM as FrmMain MDI
@@ -225,7 +224,6 @@ sequenceDiagram
 
     BLL->>+DAL: GetByUsername(username)
     DAL->>DB: SELECT * FROM [User] WHERE Username = @Username
-    DB-->>DAL: DataRow / vacio
     DAL-->>-BLL: User? (UserMapper.MapToEntity)
 
     alt user == null
@@ -248,7 +246,6 @@ sequenceDiagram
             end
         else contrasena correcta
             BLL->>DAL: ResetFailedAttempts(user.Id)
-            DAL->>DB: UPDATE FailedAttempts = 0, LastLoginAt = SYSDATETIME()
             BLL->>+S: SessionManager.Login(user)
             alt ya habia sesion abierta
                 S-)BLL: InvalidOperationException

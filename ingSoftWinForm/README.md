@@ -253,13 +253,6 @@ sequenceDiagram
         end
     end
     deactivate BLL
-
-    alt Status == Success
-        FL-->>P: DialogResult.OK
-        FM->>FM: AbrirHijo de FrmProfile
-    else
-        FL-->>U: lblError + limpia el campo password
-    end
 ```
 
 Si la base no responde, `FrmLogin` captura la excepción y muestra *"No se pudo conectar

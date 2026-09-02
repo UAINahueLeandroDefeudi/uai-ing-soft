@@ -2,8 +2,12 @@
 
 Versión recortada, con el mismo alcance que el diagrama original adjunto por
 el usuario (solo el módulo de **Login**), actualizada a los nombres y la
-arquitectura actuales del código en `ingSoftWinForm`. Para el diagrama
-completo de las 5 capas ver
+arquitectura actuales del código en `ingSoftWinForm`, más lo mínimo de
+**Bitácora** (auditoría): el login registra evento/error al iniciar/fallar
+sesión, así que `BLL.SessionBLL` agrega un `BLL.BitacoraBLL` que arma un
+`BE.Entity.Bitacora`. Para el diagrama completo de las 5 capas (con el
+módulo de Bitácora entero: `Services.BitacoraManager`, `DAL.IBitacoraDAL`,
+etc.) ver
 [Diagrama de clases v2026-09-02-A01.md](Diagrama%20de%20clases%20v2026-09-02-A01.md).
 
 ## Equivalencia con el diagrama original
@@ -53,13 +57,22 @@ namespace BLL {
     class SessionBLL {
         - {static} MaxFailedAttempts : int
         - userDAL : DAL.IUserDAL
+        - bitacoraBLL : BitacoraBLL
         + IsLoggedIn : bool
         + CurrentUser : BE.Entity.User
         + SessionBLL()
         + SessionBLL(userDAL : DAL.IUserDAL)
+        + SessionBLL(userDAL : DAL.IUserDAL, bitacoraBLL : BitacoraBLL)
         + Login(username : string, password : string) : BE.Entity.LoginResult
         + Logout() : void
         - RegistrarFallo(user : BE.Entity.User) : BE.Entity.LoginResult
+    }
+
+    class BitacoraBLL {
+        + BitacoraBLL()
+        + Registrar(bitacora : BE.Entity.Bitacora) : void
+        + RegistrarEvento(evento : BE.Enum.NameEvent, detalle : string, prioridad : BE.Enum.Priority, user : BE.Entity.User = null) : void
+        + RegistrarError(evento : BE.Enum.NameEvent, detalle : string, prioridad : BE.Enum.Priority, user : BE.Entity.User = null) : void
     }
 }
 
@@ -132,6 +145,15 @@ namespace BE.Entity {
     }
 
     LoginResult "1" o-- "0..1" User
+
+    class Bitacora {
+        + Type : BE.Enum.BitacoraType
+        + NameEvent : BE.Enum.NameEvent
+        + Priority : BE.Enum.Priority
+        + Detail : string
+        + BitacoraDate : DateTime
+        + IdUser : string
+    }
 }
 
 namespace BE.Enum {
@@ -141,6 +163,26 @@ namespace BE.Enum {
         UserBlocked
         UserInactive
         SessionAlreadyOpen
+    }
+
+    enum BitacoraType {
+        Event
+        Error
+    }
+
+    enum NameEvent {
+        Login = 1
+        Logout = 2
+        AccesoNoAutorizado = 7
+        ErrorSistema = 8
+    }
+
+    enum Priority {
+        Low
+        Medium
+        High
+        Critical
+        Fatal
     }
 }
 
@@ -166,6 +208,7 @@ namespace Services {
 ' ===================== Composición / agregación (has-a, "1") =====================
 UI.Login.FrmLogin  "1" o-- "1" BLL.SessionBLL
 BLL.SessionBLL     "1" o-- "1" DAL.IUserDAL
+BLL.SessionBLL     "1" o-- "1" BLL.BitacoraBLL
 DAL.UserDAL        "1" o-- "1" BE.Mapper.UserMapper
 Services.SessionManager "1" o-- "0..1" BE.Entity.User
 
@@ -174,6 +217,7 @@ BLL.SessionBLL        ..> Services.SessionManager : «use»
 BLL.SessionBLL        ..> Services.HashManager     : «use»
 BLL.SessionBLL        ..> BE.Entity.LoginResult    : «use» (crea)
 BE.Mapper.UserMapper  ..> BE.Entity.User           : «use» (instancia)
+BLL.BitacoraBLL       ..> BE.Entity.Bitacora       : «use» (crea)
 
 @enduml
 ```
@@ -184,10 +228,14 @@ BE.Mapper.UserMapper  ..> BE.Entity.User           : «use» (instancia)
   (campo propio), triángulo hueco continuo = herencia, triángulo hueco
   punteado = realización de interfaz, flecha punteada «use» = dependencia sin
   campo propio.
-- Se dejaron afuera, a propósito, `BLL.BitacoraBLL`, `BE.Entity.Bitacora`,
-  `Services.BitacoraManager` y las pantallas `FrmMain`/`FrmProfile`/`FrmEvent`
-  — no participan del caso de uso Login. Están documentadas en el diagrama
-  completo.
+- De Bitácora se agregó solo lo que el propio Login dispara:
+  `BLL.BitacoraBLL` (registrar evento/error), `BE.Entity.Bitacora` (con sus
+  campos clave) y los enums que usa (`BitacoraType`, `NameEvent` recortado a
+  los valores de Login, `Priority`). Se dejó afuera a propósito
+  `Services.BitacoraManager` y `DAL.IBitacoraDAL`/`BitacoraDAL` (el detalle de
+  cómo se arma y persiste el registro) y las pantallas
+  `FrmMain`/`FrmProfile`/`FrmEvent` — no participan del caso de uso Login.
+  Todo eso está documentado en el diagrama completo.
 - A diferencia del diagrama original, hoy `BLL.SessionBLL` no habla
   directamente con el mapper: pasa por `DAL.IUserDAL` (inyectable, ver los
   dos constructores), y es `DAL.UserDAL` quien internamente usa

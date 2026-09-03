@@ -25,101 +25,101 @@ namespace UI.Login
 
         private void InitializeComponent()
         {
-            this.components = new System.ComponentModel.Container();
-            this.lblUsername = new System.Windows.Forms.Label();
-            this.lblPassword = new System.Windows.Forms.Label();
-            this.txtUsername = new System.Windows.Forms.TextBox();
-            this.txtPassword = new System.Windows.Forms.TextBox();
-            this.btnAceptar = new System.Windows.Forms.Button();
-            this.btnCancelar = new System.Windows.Forms.Button();
-            this.lblError = new System.Windows.Forms.Label();
-            this.SuspendLayout();
-            //
+            lblUsername = new Label();
+            lblPassword = new Label();
+            txtUsername = new TextBox();
+            txtPassword = new TextBox();
+            btnAceptar = new Button();
+            btnCancelar = new Button();
+            lblError = new Label();
+            SuspendLayout();
+            // 
             // lblUsername
-            //
-            this.lblUsername.AutoSize = true;
-            this.lblUsername.Location = new System.Drawing.Point(24, 27);
-            this.lblUsername.Name = "lblUsername";
-            this.lblUsername.Size = new System.Drawing.Size(56, 15);
-            this.lblUsername.TabIndex = 0;
-            this.lblUsername.Text = "Usuario";
-            //
-            // txtUsername
-            //
-            this.txtUsername.Location = new System.Drawing.Point(110, 24);
-            this.txtUsername.MaxLength = 50;
-            this.txtUsername.Name = "txtUsername";
-            this.txtUsername.Size = new System.Drawing.Size(220, 23);
-            this.txtUsername.TabIndex = 1;
-            //
+            // 
+            lblUsername.AutoSize = true;
+            lblUsername.Location = new Point(24, 27);
+            lblUsername.Name = "lblUsername";
+            lblUsername.Size = new Size(59, 20);
+            lblUsername.TabIndex = 0;
+            lblUsername.Text = "Usuario";
+            // 
             // lblPassword
-            //
-            this.lblPassword.AutoSize = true;
-            this.lblPassword.Location = new System.Drawing.Point(24, 62);
-            this.lblPassword.Name = "lblPassword";
-            this.lblPassword.Size = new System.Drawing.Size(70, 15);
-            this.lblPassword.TabIndex = 2;
-            this.lblPassword.Text = "Contraseña";
-            //
+            // 
+            lblPassword.AutoSize = true;
+            lblPassword.Location = new Point(24, 62);
+            lblPassword.Name = "lblPassword";
+            lblPassword.Size = new Size(83, 20);
+            lblPassword.TabIndex = 2;
+            lblPassword.Text = "Contraseña";
+            // 
+            // txtUsername
+            // 
+            txtUsername.Location = new Point(110, 24);
+            txtUsername.MaxLength = 50;
+            txtUsername.Name = "txtUsername";
+            txtUsername.Size = new Size(220, 27);
+            txtUsername.TabIndex = 1;
+            // 
             // txtPassword
-            //
-            this.txtPassword.Location = new System.Drawing.Point(110, 59);
-            this.txtPassword.MaxLength = 100;
-            this.txtPassword.Name = "txtPassword";
-            this.txtPassword.Size = new System.Drawing.Size(220, 23);
-            this.txtPassword.TabIndex = 3;
-            this.txtPassword.UseSystemPasswordChar = true;
-            //
-            // lblError
-            //
-            this.lblError.ForeColor = System.Drawing.Color.Firebrick;
-            this.lblError.Location = new System.Drawing.Point(24, 95);
-            this.lblError.Name = "lblError";
-            this.lblError.Size = new System.Drawing.Size(306, 36);
-            this.lblError.TabIndex = 4;
-            this.lblError.Text = "";
-            //
+            // 
+            txtPassword.Location = new Point(110, 59);
+            txtPassword.MaxLength = 100;
+            txtPassword.Name = "txtPassword";
+            txtPassword.Size = new Size(220, 27);
+            txtPassword.TabIndex = 3;
+            txtPassword.UseSystemPasswordChar = true;
+            // 
             // btnAceptar
-            //
-            this.btnAceptar.Location = new System.Drawing.Point(174, 140);
-            this.btnAceptar.Name = "btnAceptar";
-            this.btnAceptar.Size = new System.Drawing.Size(75, 27);
-            this.btnAceptar.TabIndex = 5;
-            this.btnAceptar.Text = "Aceptar";
-            this.btnAceptar.UseVisualStyleBackColor = true;
-            this.btnAceptar.Click += new System.EventHandler(this.BtnAceptar_Click);
-            //
+            // 
+            btnAceptar.Location = new Point(174, 140);
+            btnAceptar.Name = "btnAceptar";
+            btnAceptar.Size = new Size(75, 27);
+            btnAceptar.TabIndex = 5;
+            btnAceptar.Text = "Aceptar";
+            btnAceptar.UseVisualStyleBackColor = true;
+            btnAceptar.Click += BtnAceptar_Click;
+            // 
             // btnCancelar
-            //
-            this.btnCancelar.Location = new System.Drawing.Point(255, 140);
-            this.btnCancelar.Name = "btnCancelar";
-            this.btnCancelar.Size = new System.Drawing.Size(75, 27);
-            this.btnCancelar.TabIndex = 6;
-            this.btnCancelar.Text = "Cancelar";
-            this.btnCancelar.UseVisualStyleBackColor = true;
-            this.btnCancelar.Click += new System.EventHandler(this.BtnCancelar_Click);
-            //
+            // 
+            btnCancelar.Location = new Point(255, 140);
+            btnCancelar.Name = "btnCancelar";
+            btnCancelar.Size = new Size(75, 27);
+            btnCancelar.TabIndex = 6;
+            btnCancelar.Text = "Cancelar";
+            btnCancelar.UseVisualStyleBackColor = true;
+            btnCancelar.Click += BtnCancelar_Click;
+            // 
+            // lblError
+            // 
+            lblError.ForeColor = Color.Firebrick;
+            lblError.Location = new Point(24, 95);
+            lblError.Name = "lblError";
+            lblError.Size = new Size(306, 36);
+            lblError.TabIndex = 4;
+            lblError.Click += lblError_Click;
+            // 
             // FrmLogin
-            //
-            this.AcceptButton = this.btnAceptar;
-            this.CancelButton = this.btnCancelar;
-            this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(354, 182);
-            this.Controls.Add(this.lblUsername);
-            this.Controls.Add(this.txtUsername);
-            this.Controls.Add(this.lblPassword);
-            this.Controls.Add(this.txtPassword);
-            this.Controls.Add(this.lblError);
-            this.Controls.Add(this.btnAceptar);
-            this.Controls.Add(this.btnCancelar);
-            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
-            this.Name = "FrmLogin";
-            this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "Iniciar sesión";
-            this.ResumeLayout(false);
-            this.PerformLayout();
+            // 
+            AcceptButton = btnAceptar;
+            AutoScaleDimensions = new SizeF(8F, 20F);
+            AutoScaleMode = AutoScaleMode.Font;
+            CancelButton = btnCancelar;
+            ClientSize = new Size(354, 182);
+            Controls.Add(lblUsername);
+            Controls.Add(txtUsername);
+            Controls.Add(lblPassword);
+            Controls.Add(txtPassword);
+            Controls.Add(lblError);
+            Controls.Add(btnAceptar);
+            Controls.Add(btnCancelar);
+            FormBorderStyle = FormBorderStyle.FixedDialog;
+            MaximizeBox = false;
+            MinimizeBox = false;
+            Name = "FrmLogin";
+            StartPosition = FormStartPosition.CenterScreen;
+            Text = "Iniciar sesión";
+            ResumeLayout(false);
+            PerformLayout();
         }
 
         #endregion

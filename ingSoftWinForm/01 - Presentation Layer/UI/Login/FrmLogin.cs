@@ -66,5 +66,10 @@ namespace UI.Login
             txtPassword.Clear();
             txtPassword.Focus();
         }
+
+        private void lblError_Click(object sender, EventArgs e)
+        {
+
+        }
     }
 }

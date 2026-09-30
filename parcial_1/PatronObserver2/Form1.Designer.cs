@@ -148,7 +148,7 @@
             this.label5.AutoSize = true;
             this.label5.Location = new System.Drawing.Point(51, 54);
             this.label5.Name = "label5";
-            this.label5.Size = new System.Drawing.Size(221, 16);
+            this.label5.Size = new System.Drawing.Size(199, 16);
             this.label5.TabIndex = 11;
             this.label5.Text = "(doble click para cambiar el día)";
             // 

@@ -61,3 +61,4 @@ packages/
 .vs/uai_shop
 obj
 node_modules/
+parcial_1/patron-observer/docs/*

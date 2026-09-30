@@ -27,9 +27,7 @@ namespace PatronObserver2
         public void Actualizar(Materia m)
         {
             Form1 f = (Form1)Application.OpenForms[0];
-            string mensaje = $"El alumno {this} recibio la notificacion:\n";
-            mensaje += $"  - materia: {m}";
-            f.Notificar(mensaje);
+            f.Notificar($"   * {this}");
         }
     }
 }

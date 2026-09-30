@@ -34,7 +34,12 @@ namespace PatronObserver2
             }
             set
             {
+                DiaSemana anterior = _diaSemana;
                 _diaSemana = value;
+
+                Form1 f = (Form1)Application.OpenForms[0];
+                f.Notificar($"La materia {Nombre} cambió de {anterior} a {_diaSemana}:");
+
                 this.notifySuscribers();
             }
         }

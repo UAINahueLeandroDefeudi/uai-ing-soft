@@ -23,7 +23,8 @@ namespace BE.Mapper
                 Email = (string)row["Email"],
                 FirstName = (string)row["FirstName"],
                 LastName = (string)row["LastName"],
-                RolesPermisos = (string)row["RolesPermisos"]
+                RolesPermisos = (string)row["RolesPermisos"],
+                Roles = (string)row["Roles"]
             };
         }
     }

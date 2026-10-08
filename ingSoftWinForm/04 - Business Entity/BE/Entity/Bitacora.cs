@@ -33,6 +33,9 @@ namespace BE.Entity
         /// </summary>
         public string RolesPermisos { get; set; } = string.Empty;
 
+        /// <summary>Nombres de los roles que tenía el usuario en ese momento.</summary>
+        public string Roles { get; set; } = string.Empty;
+
         public override string ToString() => $"[{Priority}] {NameEvent} - {Detail}";
     }
 }

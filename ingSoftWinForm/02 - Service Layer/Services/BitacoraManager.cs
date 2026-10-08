@@ -48,6 +48,7 @@ namespace Services
             bitacora.FirstName = user.FirstName;
             bitacora.LastName = user.LastName;
             bitacora.RolesPermisos = AplanarRolesPermisos(user);
+            bitacora.Roles = string.Join(", ", user.Roles.Select(r => r.Name));
 
             return bitacora;
         }

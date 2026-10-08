@@ -44,6 +44,9 @@ BEGIN
         -- Roles y permisos que tenia el usuario en ese momento, aplanados a texto.
         [RolesPermisos] NVARCHAR(MAX)     NOT NULL CONSTRAINT [DF_Bitacora_RolesPermisos] DEFAULT '',
 
+        -- Nombres de los roles del usuario en ese momento ("administrador, moderador").
+        [Roles]         NVARCHAR(500)     NOT NULL CONSTRAINT [DF_Bitacora_Roles]         DEFAULT '',
+
         CONSTRAINT [PK_Bitacora] PRIMARY KEY CLUSTERED ([id_bitacora] ASC)
     );
 
@@ -54,6 +57,12 @@ BEGIN
     CREATE INDEX [IX_Bitacora_BitacoraDate]
         ON [dbo].[Bitacora] ([BitacoraDate] DESC);
 END
+GO
+
+/* Migracion para bases creadas antes de existir la columna [Roles]. */
+IF COL_LENGTH('[dbo].[Bitacora]', 'Roles') IS NULL
+    ALTER TABLE [dbo].[Bitacora]
+        ADD [Roles] NVARCHAR(500) NOT NULL CONSTRAINT [DF_Bitacora_Roles] DEFAULT '';
 GO
 
 SELECT [id_bitacora], [Type], [NameEvent], [Priority], [BitacoraDate],

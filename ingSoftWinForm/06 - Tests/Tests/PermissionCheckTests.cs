@@ -74,6 +74,7 @@ namespace Tests
             var registro = BitacoraManager.EventoBitacora(NameEvent.Login, "x", Priority.Low, user);
 
             Assert.Equal("Roles: client | Permisos: PROFILE, LANDING", registro.RolesPermisos);
+            Assert.Equal("client", registro.Roles);
         }
     }
 }

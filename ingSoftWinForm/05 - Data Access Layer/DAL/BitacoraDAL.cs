@@ -26,10 +26,10 @@ namespace DAL
             const string query = @"
                 INSERT INTO [Bitacora]
                     ([Type], [NameEvent], [Priority], [Detail], [BitacoraDate],
-                     [IdUser], [Email], [FirstName], [LastName], [RolesPermisos])
+                     [IdUser], [Email], [FirstName], [LastName], [RolesPermisos], [Roles])
                 VALUES
                     (@Type, @NameEvent, @Priority, @Detail, @BitacoraDate,
-                     @IdUser, @Email, @FirstName, @LastName, @RolesPermisos);
+                     @IdUser, @Email, @FirstName, @LastName, @RolesPermisos, @Roles);
                 SELECT CAST(SCOPE_IDENTITY() AS INT);";
 
             SqlParameter[] parameters =
@@ -43,7 +43,8 @@ namespace DAL
                 new SqlParameter("@Email", bitacora.Email),
                 new SqlParameter("@FirstName", bitacora.FirstName),
                 new SqlParameter("@LastName", bitacora.LastName),
-                new SqlParameter("@RolesPermisos", bitacora.RolesPermisos)
+                new SqlParameter("@RolesPermisos", bitacora.RolesPermisos),
+                new SqlParameter("@Roles", bitacora.Roles)
             ];
 
             var id = dbHelper.ExecuteScalar(query, CommandType.Text, parameters);

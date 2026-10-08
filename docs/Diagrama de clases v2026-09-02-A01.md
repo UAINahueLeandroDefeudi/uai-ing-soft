@@ -247,6 +247,7 @@ namespace BE.Entity {
         + FirstName : string
         + LastName : string
         + RolesPermisos : string
+        + Roles : string
         + ToString() : string
     }
 

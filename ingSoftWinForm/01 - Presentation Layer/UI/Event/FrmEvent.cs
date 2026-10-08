@@ -108,14 +108,16 @@ namespace UI.Event
             Tipo = bitacora.Type.ToString(),
             Evento = bitacora.NameEvent.ToString(),
             Prioridad = bitacora.Priority.ToString(),
+            IdUsuario = bitacora.IdUser,
             Usuario = $"{bitacora.FirstName} {bitacora.LastName}".Trim(),
             Email = bitacora.Email,
+            Rol = bitacora.Roles,
+            Permisos = bitacora.RolesPermisos,
             Detalle = bitacora.Detail
         };
 
         /// <summary>
         /// Lo que ve el grid: los nombres de propiedad son los encabezados de columna.
-        /// Deja afuera IdUser y RolesPermisos, que no aportan a la lectura rápida.
         /// </summary>
         private class Fila
         {
@@ -124,8 +126,11 @@ namespace UI.Event
             public string Tipo { get; set; } = string.Empty;
             public string Evento { get; set; } = string.Empty;
             public string Prioridad { get; set; } = string.Empty;
+            public string IdUsuario { get; set; } = string.Empty;
             public string Usuario { get; set; } = string.Empty;
             public string Email { get; set; } = string.Empty;
+            public string Rol { get; set; } = string.Empty;
+            public string Permisos { get; set; } = string.Empty;
             public string Detalle { get; set; } = string.Empty;
         }
     }

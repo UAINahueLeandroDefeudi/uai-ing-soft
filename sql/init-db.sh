@@ -93,7 +93,7 @@ else
 fi
 
 if table_exists "Bitacora"; then
-    echo "Tabla [Bitacora]: ya existe (el script es idempotente: solo agrega columnas que falten)."
+    echo "Tabla [Bitacora]: ya existe (idempotente)."
     run_file "03_create_table_Bitacora.sql" >/dev/null
 else
     echo "Tabla [Bitacora]: creando ..."

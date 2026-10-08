@@ -16,15 +16,19 @@ namespace BLL
 
         private readonly IUserDAL userDAL;
         private readonly BitacoraBLL bitacoraBLL;
+        private readonly IRoleDAL roleDAL;
 
-        public SessionBLL() : this(new UserDAL(), new BitacoraBLL()) { }
+        public SessionBLL() : this(new UserDAL(), new BitacoraBLL(), new RoleDAL()) { }
 
-        public SessionBLL(IUserDAL userDAL) : this(userDAL, new BitacoraBLL()) { }
+        public SessionBLL(IUserDAL userDAL) : this(userDAL, new BitacoraBLL(), new RoleDAL()) { }
 
-        public SessionBLL(IUserDAL userDAL, BitacoraBLL bitacoraBLL)
+        public SessionBLL(IUserDAL userDAL, BitacoraBLL bitacoraBLL) : this(userDAL, bitacoraBLL, new RoleDAL()) { }
+
+        public SessionBLL(IUserDAL userDAL, BitacoraBLL bitacoraBLL, IRoleDAL roleDAL)
         {
             this.userDAL = userDAL;
             this.bitacoraBLL = bitacoraBLL;
+            this.roleDAL = roleDAL;
         }
 
         public LoginResult Login(string username, string password)
@@ -67,6 +71,10 @@ namespace BLL
 
             userDAL.ResetFailedAttempts(user.Id);
 
+            // T04: los roles (con su Composite de permisos) se cargan ANTES de abrir la sesión,
+            // así la bitácora y el menú ya los ven. HasPermission los recorre recursivamente.
+            user.Roles = roleDAL.GetByUser(user.Id);
+
             try
             {
                 SessionManager.Login(user);
@@ -99,6 +107,9 @@ namespace BLL
         }
 
         public bool IsLoggedIn => SessionManager.IsLoggedIn();
+
+        /// <summary>T04: la UI consulta permisos por acá, sin depender del SessionManager.</summary>
+        public bool HasPermission(string permissionCode) => SessionManager.HasPermission(permissionCode);
 
         /// <summary>
         /// Usuario de la sesión activa. La UI lo pide por acá para no depender

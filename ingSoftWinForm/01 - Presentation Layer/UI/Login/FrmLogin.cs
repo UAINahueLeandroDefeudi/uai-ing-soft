@@ -60,6 +60,18 @@ namespace UI.Login
             this.Close();
         }
 
+        /// <summary>T04: alta abierta a cualquiera; el usuario nuevo queda con rol 'invitado'.</summary>
+        private void BtnRegistrar_Click(object sender, EventArgs e)
+        {
+            using var registro = new FrmRegister();
+            if (registro.ShowDialog(this) == DialogResult.OK)
+            {
+                txtUsername.Text = registro.RegisteredUsername;
+                txtPassword.Clear();
+                txtPassword.Focus();
+            }
+        }
+
         private void MostrarError(string mensaje)
         {
             lblError.Text = mensaje;

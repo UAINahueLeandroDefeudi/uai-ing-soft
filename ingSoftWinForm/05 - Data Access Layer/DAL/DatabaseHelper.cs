@@ -56,5 +56,34 @@ namespace DAL
             connection.Open();
             return command.ExecuteScalar();
         }
+
+        /// <summary>
+        /// Ejecuta varias sentencias (query + parámetros) en una única transacción:
+        /// o se aplican todas o ninguna. Para operaciones que tocan más de una tabla
+        /// (alta de usuario + rol, alta de rol + permisos).
+        /// </summary>
+        public void ExecuteTransaction(IEnumerable<(string Query, SqlParameter[] Parameters)> statements)
+        {
+            using var connection = new SqlConnection(connectionString);
+            connection.Open();
+            using var transaction = connection.BeginTransaction();
+
+            try
+            {
+                foreach (var (query, parameters) in statements)
+                {
+                    using var command = new SqlCommand(query, connection, transaction);
+                    command.Parameters.AddRange(parameters);
+                    command.ExecuteNonQuery();
+                }
+
+                transaction.Commit();
+            }
+            catch
+            {
+                transaction.Rollback();
+                throw;
+            }
+        }
     }
 }

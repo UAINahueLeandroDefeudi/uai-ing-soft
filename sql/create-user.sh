@@ -13,6 +13,11 @@
 # Uso:
 #   ./create-user.sh -u admin -p Admin123
 #   ./create-user.sh -u pepe -p Test1234 -f Jose -l Perez -e pepe@if.local
+#   ./create-user.sh -u mod -p Mod12345 -r moderador     (otro rol)
+#   ./create-user.sh -u sinrol -p Test1234 -r ninguno    (sin rol)
+#
+# T04: por defecto el usuario creado queda con el rol "administrador" (puede gestionar
+# perfiles). Requiere sql/04_init_create_roles_permission.sql (o sql/init-db.sh).
 #
 set -euo pipefail
 
@@ -26,6 +31,7 @@ PASSWORD=""
 FIRST_NAME="Nombre"
 LAST_NAME="Apellido"
 EMAIL=""
+ROLE="administrador"
 SERVER='localhost\SQLEXPRESS'
 DATABASE="IF_DB"
 
@@ -44,6 +50,8 @@ Opcionales:
   -f <nombre>      FirstName          (default: Nombre)
   -l <apellido>    LastName           (default: Apellido)
   -e <email>       Email              (default: NULL)
+  -r <rol>         Rol a asignar (default: administrador). 'ninguno' = sin rol.
+                   Debe existir en [dbo].[Role] (sql/04_init_create_roles_permission.sql)
   -S <servidor>    Instancia SQL      (default: localhost\SQLEXPRESS)
   -d <base>        Base de datos      (default: IF_DB)
   -h               Muestra esta ayuda
@@ -54,13 +62,14 @@ Ejemplos:
 USAGE
 }
 
-while getopts ":u:p:f:l:e:S:d:h" opt; do
+while getopts ":u:p:f:l:e:r:S:d:h" opt; do
     case "$opt" in
         u) USERNAME="$OPTARG" ;;
         p) PASSWORD="$OPTARG" ;;
         f) FIRST_NAME="$OPTARG" ;;
         l) LAST_NAME="$OPTARG" ;;
         e) EMAIL="$OPTARG" ;;
+        r) ROLE="$OPTARG" ;;
         S) SERVER="$OPTARG" ;;
         d) DATABASE="$OPTARG" ;;
         h) usage; exit 0 ;;
@@ -115,6 +124,26 @@ else
     e_sql="$(sql_str "$EMAIL")"
 fi
 
+# --- Rol (T04) ---
+# El rol se valida ANTES de insertar: si no existe no se crea un usuario a medias.
+ROLE_CHECK_SQL=""
+ROLE_ASSIGN_SQL=""
+if [[ "$ROLE" != "ninguno" ]]; then
+    r_sql="$(sql_str "$ROLE")"
+    # Dos pasos: si [Role] no existe, el SELECT sobre ella ni siquiera debe evaluarse.
+    ROLE_CHECK_SQL="ELSE IF OBJECT_ID('[dbo].[Role]', 'U') IS NULL
+BEGIN
+    RAISERROR('Faltan las tablas de roles (ejecutar sql/init-db.sh o usar -r ninguno)', 16, 1);
+END
+ELSE IF NOT EXISTS (SELECT 1 FROM [dbo].[Role] WHERE [Name] = $r_sql)
+BEGIN
+    RAISERROR('El rol indicado no existe en [dbo].[Role]', 16, 1);
+END"
+    ROLE_ASSIGN_SQL="INSERT INTO [dbo].[User_Role] ([UserId], [RoleId])
+    SELECT u.[Id], r.[Id] FROM [dbo].[User] u, [dbo].[Role] r
+    WHERE u.[Username] = $u_sql AND r.[Name] = $r_sql;"
+fi
+
 # --- Script temporal (sqlcmd necesita ruta Windows) ---
 TMP_SQL="$(mktemp --suffix=.sql)"
 cleanup() { rm -f "$TMP_SQL"; }
@@ -128,12 +157,14 @@ IF EXISTS (SELECT 1 FROM [dbo].[User] WHERE [Username] = $u_sql)
 BEGIN
     RAISERROR('Ya existe un usuario con ese username', 16, 1);
 END
+$ROLE_CHECK_SQL
 ELSE
 BEGIN
     INSERT INTO [dbo].[User]
         ([Username], [PasswordHash], [Salt], [FirstName], [LastName], [Email], [CreatedBy])
     VALUES
         ($u_sql, 0x$HASH_HEX, 0x$SALT_HEX, $f_sql, $l_sql, $e_sql, 'seed');
+$ROLE_ASSIGN_SQL
 END
 SQL
 
@@ -152,7 +183,7 @@ if ! sqlcmd -S "$SERVER" -E -C -I -b -d "$DATABASE" -i "$TMP_SQL_WIN"; then
     exit 1
 fi
 
-echo "OK. Usuario '$USERNAME' creado."
+echo "OK. Usuario '$USERNAME' creado (rol: $ROLE)."
 echo
 sqlcmd -S "$SERVER" -E -C -I -W -d "$DATABASE" \
     -Q "SET NOCOUNT ON; SELECT Username, FirstName, LastName, FailedAttempts, IsBlocked, IsActive FROM [dbo].[User];"

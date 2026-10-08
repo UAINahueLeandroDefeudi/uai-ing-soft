@@ -1,7 +1,10 @@
+using BE.Entity;
 using BLL;
 using UI.Event;
+using UI.Landing;
 using UI.Login;
 using UI.Profile;
+using UI.Roles;
 
 namespace UI
 {
@@ -18,6 +21,7 @@ namespace UI
             InitializeComponent();
             sessionBLL = new SessionBLL();
             MostrarUsuarioEnSesion();
+            AplicarPermisos();
         }
 
         private void FrmMain_Load(object sender, EventArgs e)
@@ -25,7 +29,22 @@ namespace UI
             // El perfil arranca abierto como ventana hija: es la primera pantalla
             // que ve el usuario al entrar. Va en el Load y no en el constructor
             // porque el contenedor MDI todavía no tiene handle creado.
-            AbrirHijo<FrmProfile>();
+            // T04: sólo si el rol del usuario le permite ver su perfil.
+            if (sessionBLL.HasPermission(PermissionCode.VerMiPerfil))
+                AbrirHijo<FrmProfile>();
+        }
+
+        /// <summary>
+        /// T04: habilita sólo las opciones para las que el usuario tiene permiso
+        /// (CU-01). La BLL vuelve a validar al operar: ocultar el menú no es seguridad.
+        /// </summary>
+        private void AplicarPermisos()
+        {
+            mnuInicio.Visible = sessionBLL.HasPermission(PermissionCode.VerLandingPage);
+            mnuPerfil.Visible = sessionBLL.HasPermission(PermissionCode.VerMiPerfil);
+            mnuEvent.Visible = sessionBLL.HasPermission(PermissionCode.VerBitacora);
+            mnuRoles.Visible = sessionBLL.HasPermission(PermissionCode.GestionarRoles);
+            mnuCerrarSesion.Visible = sessionBLL.HasPermission(PermissionCode.CerrarSesion);
         }
 
         /// <summary>
@@ -58,9 +77,13 @@ namespace UI
                 : $"Usuario: {user.Username} ({user.FirstName} {user.LastName})";
         }
 
+        private void MnuInicio_Click(object sender, EventArgs e) => AbrirHijo<FrmLanding>();
+
         private void MnuPerfil_Click(object sender, EventArgs e) => AbrirHijo<FrmProfile>();
 
         private void MnuEvent_Click(object sender, EventArgs e) => AbrirHijo<FrmEvent>();
+
+        private void MnuRoles_Click(object sender, EventArgs e) => AbrirHijo<FrmRoleManagement>();
 
         private void MnuCerrarSesion_Click(object sender, EventArgs e)
         {

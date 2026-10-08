@@ -15,6 +15,12 @@ namespace BE.Entity
         public bool IsActive { get; set; }
         public DateTime? LastLoginAt { get; set; }
 
+        /// <summary>Roles asignados (T04). Se cargan al iniciar sesión.</summary>
+        public List<Role> Roles { get; set; } = new();
+
+        /// <summary>Alguno de sus roles otorga el permiso (búsqueda recursiva en el Composite).</summary>
+        public bool HasPermission(string code) => Roles.Any(r => r.Grants(code));
+
         public override string ToString() => Username;
     }
 }

@@ -63,10 +63,22 @@ namespace Services
             => SessionManager.IsLoggedIn() ? SessionManager.GetInstance.User : null;
 
         /// <summary>
-        /// Deja por escrito los roles y permisos que tenía el usuario en ese momento.
-        /// TODO: completar cuando esté implementado el árbol Composite de permisos
-        /// (ver DC-permisos-composite.md). Hasta entonces devuelve vacío.
+        /// Deja por escrito los roles y permisos que tenía el usuario en ese momento
+        /// ("Roles: client | Permisos: VER_MI_PERFIL, ..."). Aplana el Composite con
+        /// Permission.Flatten (recursivo).
         /// </summary>
-        private static string AplanarRolesPermisos(User user) => string.Empty;
+        private static string AplanarRolesPermisos(User user)
+        {
+            if (user.Roles.Count == 0) return string.Empty;
+
+            var roles = string.Join(", ", user.Roles.Select(r => r.Name));
+            var permisos = user.Roles
+                .SelectMany(r => r.Permissions)
+                .SelectMany(p => p.Flatten())
+                .Select(p => p.Code)
+                .Distinct();
+
+            return $"Roles: {roles} | Permisos: {string.Join(", ", permisos)}";
+        }
     }
 }

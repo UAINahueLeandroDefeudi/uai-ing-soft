@@ -1,107 +1,155 @@
-# DS - Permisos RBAC (Composite)
+# DS - Perfiles de usuario (T04, Composite)
 
-Dos escenarios sobre el mismo árbol de permisos:
+Cuatro escenarios sobre el mismo árbol de permisos:
 
-1. **Carga** del árbol Familia/Patente desde la base al iniciar sesión.
-2. **Verificación** de un permiso (`IsInRole`) mediante recorrido recursivo.
+1. **Carga** de roles y permisos al iniciar sesión.
+2. **Verificación** de un permiso (`HasPermission`) por recorrido recursivo.
+3. **Registro** de un usuario nuevo (rol `invitado`).
+4. **Agregar un permiso a un rol** desde la gestión de roles.
 
-## 1. Carga del árbol de permisos del usuario
+## 1. Carga de roles y permisos al iniciar sesión
 
 ```mermaid
 sequenceDiagram
-    participant SBLL as SesionBLL
-    participant PBLL as PermisosBLL
-    participant DAL as PermisosDAL
-    participant BD as BaseDeDatos
-    participant Fam as Familia
-    participant Pat as Patente
-    participant U as UsuarioBE
+    participant SBLL as SessionBLL
+    participant RDAL as RoleDAL
+    participant PDAL as PermissionDAL
+    participant BD as Base de datos
+    participant U as User
+    participant SM as SessionManager
 
-    SBLL->>+PBLL: FillUserComponents(Usuario)
-    PBLL->>+DAL: FillUserComponents(Usuario)
-    DAL->>+BD: SELECT permisos del usuario
-    BD-->>-DAL: filas (id, nombre, permiso)
-    DAL->>U: Permisos.Clear()
-
-    loop Por cada permiso asignado
-        alt permiso IS NULL (es Familia)
-            DAL->>+Fam: new Familia(id, nombre)
-            Fam-->>-DAL: Familia
-            DAL->>+BD: CTE recursivo GetAll(=idFamilia)
-            BD-->>-DAL: descendientes (padre, hijo)
-            loop Por cada descendiente
-                DAL->>DAL: GetComponent(idPadre, lista)
-                alt Tiene padre en el árbol
-                    DAL->>Fam: AgregarHijo(Componente)
-                else Es raíz
-                    DAL->>DAL: lista.Add(Componente)
-                end
-            end
-            DAL->>U: Permisos.Add(Familia)
-        else permiso NOT NULL (es Patente)
-            DAL->>+Pat: new Patente(id, nombre, TipoPermiso)
-            Pat-->>-DAL: Patente
-            DAL->>U: Permisos.Add(Patente)
-        end
+    SBLL->>SBLL: HashManager.VerifyPassword() = OK
+    SBLL->>+RDAL: GetByUser(user.Id)
+    RDAL->>+BD: SELECT Role JOIN User_Role
+    BD-->>-RDAL: roles del usuario
+    RDAL->>+PDAL: GetAll()
+    PDAL->>+BD: SELECT Permission + SELECT Permission_Permission
+    BD-->>-PDAL: filas
+    loop Por cada compuesto
+        PDAL->>PDAL: FillChildren(compuesto) [recursivo]
     end
-
-    DAL-->>-PBLL: Usuario con árbol armado
-    PBLL-->>-SBLL: OK
+    PDAL-->>-RDAL: catálogo con árbol armado
+    RDAL->>+BD: SELECT Role_Permission
+    BD-->>-RDAL: (RoleId, PermissionId)
+    RDAL->>RDAL: role.AddPermission(permiso del catálogo)
+    RDAL-->>-SBLL: List~Role~
+    SBLL->>U: Roles = roles
+    SBLL->>SM: Login(user)
 ```
 
-> El `SELECT` decide qué clase instanciar mirando **un solo campo**: si
-> `permiso IS NULL` es `Familia` (Composite), si tiene valor es `Patente` (Leaf).
+> `PermissionMapper` decide qué clase instanciar mirando `IsCompound`: `0` →
+> `SimplePermission` (Leaf), `1` → `CompoundPermission` (Composite).
+> Los roles se cargan **antes** de abrir la sesión para que la bitácora del
+> login ya registre los roles y permisos del usuario.
 
 ## 2. Verificación de un permiso (recorrido recursivo)
 
 ```mermaid
 sequenceDiagram
     actor Usuario
-    participant UI as FrmUsuarios
-    participant Sess as SessionManager
-    participant U as UsuarioBE
-    participant Adm as Familia Administrador
-    participant Seg as Familia Seguridad
-    participant Pat as Patente UsuarioAlta
+    participant UI as FrmMain
+    participant SBLL as SessionBLL
+    participant SM as SessionManager
+    participant U as User
+    participant R as Role client
+    participant C as CompoundPermission SESION_BASICA
+    participant L as SimplePermission VER_MI_PERFIL
 
-    Usuario->>+UI: AbrirAltaDeUsuario()
-    UI->>+Sess: IsInRole(TipoPermiso.UsuarioAlta)
-    Sess->>+U: Permisos
-    U-->>-Sess: Lista de Componentes
-
-    loop Por cada permiso raíz del usuario
-        Sess->>+Adm: TienePermiso(UsuarioAlta)
-        Note over Adm: Composite: no evalúa,<br/>delega en sus hijos
-        Adm->>+Seg: TienePermiso(UsuarioAlta)
-        Seg->>+Pat: TienePermiso(UsuarioAlta)
-        Note over Pat: Leaf: compara y responde
-        Pat-->>-Seg: true
-        Seg-->>-Adm: true
-        Adm-->>-Sess: true
+    UI->>+SBLL: HasPermission("VER_MI_PERFIL")
+    SBLL->>+SM: HasPermission("VER_MI_PERFIL")
+    SM->>+U: HasPermission(code)
+    loop Por cada rol del usuario
+        U->>+R: Grants(code)
+        R->>+C: Grants(code)
+        Note over C: Composite: su código no coincide,<br/>delega en sus hijos
+        C->>+L: Grants(code)
+        Note over L: Leaf: compara y responde
+        L-->>-C: true
+        C-->>-R: true
+        R-->>-U: true
     end
+    U-->>-SM: true
+    SM-->>-SBLL: true
+    SBLL-->>-UI: true
+    UI->>UI: mnuPerfil.Visible = true
+    UI-->>Usuario: menú con las opciones permitidas
+```
 
-    alt Tiene el permiso
-        Sess-->>UI: true
-        UI-->>Usuario: MostrarFormularioAlta()
-    else No lo tiene
-        Sess-->>-UI: false
-        UI->>UI: RegistrarEnBitacora(AccesoDenegado)
-        UI-->>-Usuario: MostrarAccesoDenegado()
+## 3. Registro de un usuario nuevo
+
+```mermaid
+sequenceDiagram
+    actor Visitante
+    participant L as FrmLogin
+    participant R as FrmRegister
+    participant UB as UserBLL
+    participant H as HashManager
+    participant UD as UserDAL
+    participant BD as Base de datos
+    participant B as BitacoraBLL
+
+    Visitante->>L: Registrarse
+    L->>R: ShowDialog()
+    Visitante->>R: datos + Registrar
+    R->>+UB: Register(username, pwd, confirm, nombre, apellido, email)
+    UB->>UB: validar (largo, coincidencia, email)
+    UB->>+UD: GetByUsername / EmailExists
+    UD-->>-UB: no existe
+    UB->>H: GenerateSalt() / HashPassword()
+    UB->>+UD: Insert(user, "invitado")
+    UD->>+BD: BEGIN TRAN: INSERT User + INSERT User_Role (rol invitado)
+    BD-->>-UD: COMMIT
+    UD-->>-UB: ok
+    UB->>B: RegistrarEvento(CrearUsuario)
+    UB-->>-R: OperationResult.Ok
+    R-->>L: DialogResult.OK (precarga el usuario)
+```
+
+> Si el rol `invitado` no existe, el `INSERT` a `User_Role` afecta 0 filas, se
+> lanza un error y la transacción hace *rollback*: nunca queda un usuario sin rol.
+
+## 4. Agregar un permiso a un rol
+
+```mermaid
+sequenceDiagram
+    actor Admin as Administrador
+    participant F as FrmRoleManagement
+    participant RB as RoleBLL
+    participant SM as SessionManager
+    participant RD as RoleDAL
+    participant B as BitacoraBLL
+
+    Admin->>F: selecciona rol + permiso, "Asignar Permiso a Rol"
+    F->>+RB: AddPermissionToRole(role, permission)
+    RB->>SM: HasPermission("GESTIONAR_ROLES")
+    alt sin permiso
+        RB->>B: RegistrarError(AccesoNoAutorizado)
+        RB-->>F: Fail("No tenés permiso...")
+    else role.Grants(permission.Code) (ya lo otorga)
+        RB-->>F: Fail("El rol ya otorga ...")
+    else
+        RB->>RD: AddPermission(roleId, permissionId)
+        RB->>RB: role.AddPermission(permission)
+        RB->>B: RegistrarEvento(AsignarPermisoRol)
+        RB-->>-F: Ok
+        F->>F: CargarTodo() → LlenarArbolRoles → MostrarRecursivo
     end
 ```
 
 ## Puntos clave
 
-- **El cliente no pregunta el tipo**: `UI` y `SessionManager` sólo invocan
-  `TienePermiso()`; el árbol se encarga de resolver. Sin Composite habría un
-  `if (esFamilia) ... else ...` repetido en cada punto de control.
+- **El cliente no pregunta el tipo**: `FrmMain`, `RoleBLL` y `SessionManager` sólo
+  invocan `Grants` / `HasPermission`; el árbol resuelve solo. Sin Composite habría un
+  `if (esCompuesto) ... else ...` repetido en cada punto de control.
 - **Corta en el primer `true`**: no recorre el árbol completo.
-- **Profundidad N**: una familia puede contener otras familias sin límite; el
-  algoritmo no cambia.
-- **Ciclos**: si `PermisosBLL.GeneraCiclo()` no valida antes de guardar, este
-  recorrido nunca termina. Es la única forma real de romper el patrón.
+- **Profundidad N**: un compuesto puede contener otros compuestos; el algoritmo no cambia.
+- **Ciclos**: `CompoundPermission.Add` los rechaza; sin esa validación el recorrido
+  recursivo no terminaría.
+- **Seguridad en profundidad**: la UI oculta opciones, pero la BLL vuelve a validar
+  el permiso en cada operación y audita el intento denegado.
 
 ## Diagramas relacionados
 
 - Clases: [DC-permisos-composite.md](../DC%20-%20Diagrama%20de%20clases/DC-permisos-composite.md)
 - Datos: [DER-permisos-composite.md](../DER%20-%20Diagrama%20entidad%20relación/DER-permisos-composite.md)
+- Casos de uso: [CU-gestion-perfiles.md](../CU%20-%20Casos%20de%20uso/CU-gestion-perfiles.md)

@@ -10,6 +10,7 @@ namespace UI.Login
         private System.Windows.Forms.TextBox txtPassword;
         private System.Windows.Forms.Button btnAceptar;
         private System.Windows.Forms.Button btnCancelar;
+        private System.Windows.Forms.Button btnRegistrar;
         private System.Windows.Forms.Label lblError;
 
         protected override void Dispose(bool disposing)
@@ -31,6 +32,7 @@ namespace UI.Login
             txtPassword = new TextBox();
             btnAceptar = new Button();
             btnCancelar = new Button();
+            btnRegistrar = new Button();
             lblError = new Label();
             SuspendLayout();
             // 
@@ -89,6 +91,16 @@ namespace UI.Login
             btnCancelar.UseVisualStyleBackColor = true;
             btnCancelar.Click += BtnCancelar_Click;
             // 
+            // btnRegistrar
+            // 
+            btnRegistrar.Location = new Point(24, 140);
+            btnRegistrar.Name = "btnRegistrar";
+            btnRegistrar.Size = new Size(110, 27);
+            btnRegistrar.TabIndex = 7;
+            btnRegistrar.Text = "Registrarse";
+            btnRegistrar.UseVisualStyleBackColor = true;
+            btnRegistrar.Click += BtnRegistrar_Click;
+            // 
             // lblError
             // 
             lblError.ForeColor = Color.Firebrick;
@@ -112,6 +124,7 @@ namespace UI.Login
             Controls.Add(lblError);
             Controls.Add(btnAceptar);
             Controls.Add(btnCancelar);
+            Controls.Add(btnRegistrar);
             FormBorderStyle = FormBorderStyle.FixedDialog;
             MaximizeBox = false;
             MinimizeBox = false;

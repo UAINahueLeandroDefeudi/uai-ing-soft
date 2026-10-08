@@ -41,6 +41,14 @@ namespace DAL
             return mapper.MapAll(ds.Tables[0]).ToList();
         }
 
+        public bool EmailExists(string email)
+        {
+            const string query = "SELECT COUNT(1) FROM [User] WHERE Email = @Email";
+            SqlParameter[] parameters = [new SqlParameter("@Email", email)];
+
+            return Convert.ToInt32(dbHelper.ExecuteScalar(query, CommandType.Text, parameters)) > 0;
+        }
+
         public bool Block(string username)
         {
             const string query = "UPDATE [User] SET IsBlocked = @IsBlocked, UpdatedAt = SYSDATETIME() WHERE Username = @Username";
@@ -73,6 +81,36 @@ namespace DAL
             ];
 
             dbHelper.ExecuteNonQuery(query, CommandType.Text, parameters);
+        }
+
+        public void Insert(User user, string roleName)
+        {
+            const string insertUser =
+                "INSERT INTO [User] (Id, Username, PasswordHash, Salt, FirstName, LastName, Email, CreatedBy) " +
+                "VALUES (@Id, @Username, @PasswordHash, @Salt, @FirstName, @LastName, @Email, @CreatedBy)";
+            SqlParameter[] userParameters =
+            [
+                new SqlParameter("@Id", user.Id),
+                new SqlParameter("@Username", user.Username),
+                new SqlParameter("@PasswordHash", user.PasswordHash),
+                new SqlParameter("@Salt", user.Salt),
+                new SqlParameter("@FirstName", user.FirstName),
+                new SqlParameter("@LastName", user.LastName),
+                new SqlParameter("@Email", (object?)user.Email ?? DBNull.Value),
+                new SqlParameter("@CreatedBy", (object?)user.CreatedBy ?? DBNull.Value)
+            ];
+
+            // Falla (y la transacción hace rollback) si el rol no existe: no queda un usuario sin rol.
+            const string insertRole =
+                "INSERT INTO [User_Role] (UserId, RoleId) SELECT @UserId, Id FROM [Role] WHERE Name = @RoleName; " +
+                "IF @@ROWCOUNT = 0 THROW 50001, 'El rol indicado no existe', 1;";
+            SqlParameter[] roleParameters =
+            [
+                new SqlParameter("@UserId", user.Id),
+                new SqlParameter("@RoleName", roleName)
+            ];
+
+            dbHelper.ExecuteTransaction([(insertUser, userParameters), (insertRole, roleParameters)]);
         }
     }
 }

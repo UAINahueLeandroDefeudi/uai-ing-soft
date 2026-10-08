@@ -13,6 +13,12 @@ namespace BE.Enum
         EliminarUsuario = 5,
         CambiarPassword = 6,
         AccesoNoAutorizado = 7,
-        ErrorSistema = 8
+        ErrorSistema = 8,
+        CrearRol = 9,
+        EliminarRol = 10,
+        AsignarPermisoRol = 11,
+        QuitarPermisoRol = 12,
+        AsignarRolUsuario = 13,
+        QuitarRolUsuario = 14
     }
 }

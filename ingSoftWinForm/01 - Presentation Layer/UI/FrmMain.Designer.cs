@@ -6,8 +6,10 @@ namespace UI
 
         private System.Windows.Forms.MenuStrip menuStrip;
         private System.Windows.Forms.ToolStripMenuItem mnuSesion;
+        private System.Windows.Forms.ToolStripMenuItem mnuInicio;
         private System.Windows.Forms.ToolStripMenuItem mnuPerfil;
         private System.Windows.Forms.ToolStripMenuItem mnuEvent;
+        private System.Windows.Forms.ToolStripMenuItem mnuRoles;
         private System.Windows.Forms.ToolStripMenuItem mnuCerrarSesion;
         private System.Windows.Forms.ToolStripSeparator sepSesion;
         private System.Windows.Forms.ToolStripMenuItem mnuSalir;
@@ -36,8 +38,10 @@ namespace UI
             this.components = new System.ComponentModel.Container();
             this.menuStrip = new System.Windows.Forms.MenuStrip();
             this.mnuSesion = new System.Windows.Forms.ToolStripMenuItem();
+            this.mnuInicio = new System.Windows.Forms.ToolStripMenuItem();
             this.mnuPerfil = new System.Windows.Forms.ToolStripMenuItem();
             this.mnuEvent = new System.Windows.Forms.ToolStripMenuItem();
+            this.mnuRoles = new System.Windows.Forms.ToolStripMenuItem();
             this.mnuCerrarSesion = new System.Windows.Forms.ToolStripMenuItem();
             this.sepSesion = new System.Windows.Forms.ToolStripSeparator();
             this.mnuSalir = new System.Windows.Forms.ToolStripMenuItem();
@@ -68,14 +72,23 @@ namespace UI
             // mnuSesion
             //
             this.mnuSesion.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+                this.mnuInicio,
                 this.mnuPerfil,
                 this.mnuEvent,
+                this.mnuRoles,
                 this.mnuCerrarSesion,
                 this.sepSesion,
                 this.mnuSalir});
             this.mnuSesion.Name = "mnuSesion";
             this.mnuSesion.Size = new System.Drawing.Size(58, 20);
             this.mnuSesion.Text = "&Sesión";
+            //
+            // mnuInicio
+            //
+            this.mnuInicio.Name = "mnuInicio";
+            this.mnuInicio.Size = new System.Drawing.Size(180, 22);
+            this.mnuInicio.Text = "&Inicio";
+            this.mnuInicio.Click += new System.EventHandler(this.MnuInicio_Click);
             //
             // mnuPerfil
             //
@@ -90,6 +103,13 @@ namespace UI
             this.mnuEvent.Size = new System.Drawing.Size(180, 22);
             this.mnuEvent.Text = "&Bitácora";
             this.mnuEvent.Click += new System.EventHandler(this.MnuEvent_Click);
+            //
+            // mnuRoles
+            //
+            this.mnuRoles.Name = "mnuRoles";
+            this.mnuRoles.Size = new System.Drawing.Size(180, 22);
+            this.mnuRoles.Text = "Gestión de &roles";
+            this.mnuRoles.Click += new System.EventHandler(this.MnuRoles_Click);
             //
             // mnuCerrarSesion
             //

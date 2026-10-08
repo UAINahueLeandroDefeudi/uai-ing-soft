@@ -37,6 +37,13 @@ namespace Services
             };
         }
 
+        /// <summary>
+        /// T04: ¿el usuario de la sesión activa tiene el permiso? Recorre recursivamente
+        /// el Composite de cada rol (ver Permission.Grants). Sin sesión devuelve false.
+        /// </summary>
+        public static bool HasPermission(string code)
+            => _session != null && _session.User.HasPermission(code);
+
         public static void Logout()
         {
             if (_session == null) throw new InvalidOperationException("Sesión no iniciada");

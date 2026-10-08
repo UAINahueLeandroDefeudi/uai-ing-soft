@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Patrón Observer: cambio de precio",
+    "output": "parcial_1/patron-observer/docs/observer-diagrama.html",
+    "locale": "en",
+    "viewBox": [1000, 520],
+    "column_fit": "spread",
+    "quality_profile": "showcase"
+  },
+  "participants": [
+    { "id": "op", "type": "external", "label": "Operador", "sublabel": "persona" },
+    { "id": "form", "type": "frontend", "label": "Form1", "sublabel": "cliente / UI" },
+    { "id": "prod", "type": "backend", "label": "Producto", "sublabel": "sujeto ISujetoProducto" },
+    { "id": "usr", "type": "backend", "label": "Usuario", "sublabel": "observer IObserverUsuario" }
+  ],
+  "messages": [
+    { "id": "dblclick", "from": "op", "to": "form", "y": 165, "label": "doble clic en lstProductos", "variant": "default" },
+    { "id": "set-precio", "from": "form", "to": "prod", "y": 200, "label": "Precio = p  (setter llama Notificar)", "variant": "emphasis" },
+    { "id": "actualizar", "from": "prod", "to": "usr", "y": 240, "label": "foreach: Actualizar(this)", "variant": "emphasis" },
+    { "id": "usr-form", "from": "usr", "to": "form", "y": 285, "label": "OpenForms[0].Notificar(msg)", "variant": "security" },
+    { "id": "list-add", "from": "form", "to": "op", "y": 325, "label": "lstNotificaciones.Add", "variant": "return" },
+    { "id": "prod-form", "from": "prod", "to": "form", "y": 375, "label": "OpenForms[0].Notificar(separador)", "variant": "security" },
+    { "id": "refresh", "from": "form", "to": "op", "y": 415, "label": "mostrarProductos()", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "form", "from": 160, "to": 420, "type": "frontend" },
+    { "participant": "prod", "from": 195, "to": 380, "type": "backend" },
+    { "participant": "usr", "from": 235, "to": 290, "type": "backend" }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Roles del patrón",
+      "items": [
+        "Producto es el sujeto: guarda la lista _usuarios",
+        "Usuario es el observer: implementa Actualizar",
+        "Form1 es el cliente: suscribe, quita y cambia precios"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Acoplamiento a corregir",
+      "items": [
+        "Producto y Usuario llaman a Form1 vía Application.OpenForms[0]",
+        "El modelo conoce la UI, lo contrario de lo que busca Observer"
+      ]
+    }
+  ]
+}

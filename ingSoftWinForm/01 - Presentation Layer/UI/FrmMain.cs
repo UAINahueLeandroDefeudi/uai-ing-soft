@@ -43,7 +43,10 @@ namespace UI
             mnuInicio.Visible = sessionBLL.HasPermission(PermissionCode.VerLandingPage);
             mnuPerfil.Visible = sessionBLL.HasPermission(PermissionCode.VerMiPerfil);
             mnuEvent.Visible = sessionBLL.HasPermission(PermissionCode.VerBitacora);
-            mnuRoles.Visible = sessionBLL.HasPermission(PermissionCode.GestionarRoles);
+            // La pantalla sirve a dos permisos: gestionar roles y asignarlos a usuarios.
+            // Cada botón del form se habilita por separado según el permiso que exige.
+            mnuRoles.Visible = sessionBLL.HasPermission(PermissionCode.GestionarRoles)
+                            || sessionBLL.HasPermission(PermissionCode.AsignarRolesUsuario);
             mnuCerrarSesion.Visible = sessionBLL.HasPermission(PermissionCode.CerrarSesion);
         }
 

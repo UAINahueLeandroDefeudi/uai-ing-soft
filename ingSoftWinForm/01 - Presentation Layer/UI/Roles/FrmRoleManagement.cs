@@ -29,9 +29,23 @@ namespace UI.Roles
             var gestionaRoles = sessionBLL.HasPermission(PermissionCode.GestionarRoles);
             var asignaRoles = sessionBLL.HasPermission(PermissionCode.AsignarRolesUsuario);
 
-            btnCrearRol.Enabled = btnEliminarRol.Enabled = gestionaRoles;
-            btnAsignarPermisoRol.Enabled = btnQuitarPermisoRol.Enabled = gestionaRoles;
-            btnAsignarRolUsuario.Enabled = btnQuitarRolUsuario.Enabled = asignaRoles;
+            // Lo que el usuario no puede hacer no se muestra (en vez de verse deshabilitado).
+            btnCrearRol.Visible = btnEliminarRol.Visible = gestionaRoles;
+            lblNombreRol.Visible = txtNombreRol.Visible = gestionaRoles;
+            btnAsignarPermisoRol.Visible = btnQuitarPermisoRol.Visible = gestionaRoles;
+            btnAsignarRolUsuario.Visible = btnQuitarRolUsuario.Visible = asignaRoles;
+
+            if (!gestionaRoles)
+            {
+                Controls.Add(new Label
+                {
+                    AutoSize = false,
+                    Location = new System.Drawing.Point(430, 440),
+                    Size = new System.Drawing.Size(560, 50),
+                    ForeColor = System.Drawing.SystemColors.GrayText,
+                    Text = "Si desea gestionar roles o permisos, contáctese con un administrador."
+                });
+            }
 
             CargarTodo();
         }

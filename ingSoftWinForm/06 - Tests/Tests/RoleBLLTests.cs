@@ -121,8 +121,8 @@ namespace Tests
             SessionManager.Login(admin);
             var rol = RoleWith("client", 3);
 
-            Assert.True(bll.AddPermissionToRole(rol, Simple("LANDING")).Success);
-            Assert.True(rol.Grants("LANDING"));
+            Assert.True(bll.AddPermissionToRole(rol, Simple("INICIO")).Success);
+            Assert.True(rol.Grants("INICIO"));
         }
 
         [Fact]
@@ -139,10 +139,10 @@ namespace Tests
         public void RemovePermissionFromRole_Direct_Succeeds()
         {
             SessionManager.Login(admin);
-            var rol = RoleWith("client", 3, Simple("LANDING"));
+            var rol = RoleWith("client", 3, Simple("INICIO"));
 
-            Assert.True(bll.RemovePermissionFromRole(rol, Simple("LANDING")).Success);
-            Assert.False(rol.Grants("LANDING"));
+            Assert.True(bll.RemovePermissionFromRole(rol, Simple("INICIO")).Success);
+            Assert.False(rol.Grants("INICIO"));
         }
 
         [Fact]

@@ -36,7 +36,7 @@ flowchart LR
 | Rol | Qué puede hacer |
 |---|---|
 | `invitado` | Ver su perfil y cerrar sesión (único rol que recibe el registro abierto) |
-| `client` | Lo anterior + ver la landing page |
+| `client` | Lo anterior + ver la página de inicio |
 | `moderador` | Lo del client + ver la bitácora |
 | `administrador` | Lo del moderador + gestionar roles y asignarlos a usuarios |
 
@@ -72,7 +72,7 @@ flowchart LR
 | **Precondiciones** | Sesión abierta (CU-01) con los roles cargados |
 
 **Flujo principal**: al abrir el menú principal el sistema consulta `HasPermission` por cada opción
-(`VER_LANDING_PAGE` → Inicio, `VER_MI_PERFIL` → Mi perfil, `VER_BITACORA` → Bitácora,
+(`VER_INICIO` → Inicio, `VER_MI_PERFIL` → Mi perfil, `VER_BITACORA` → Bitácora,
 `GESTIONAR_ROLES` → Gestión de roles, `CERRAR_SESION` → Cerrar sesión) y oculta las no permitidas.
 
 **Nota**: ocultar no es seguridad; cada operación sensible vuelve a validar el permiso en la BLL.

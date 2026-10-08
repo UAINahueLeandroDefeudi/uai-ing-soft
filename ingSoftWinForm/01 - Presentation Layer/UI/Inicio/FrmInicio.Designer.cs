@@ -1,6 +1,6 @@
-namespace UI.Landing
+namespace UI.Inicio
 {
-    partial class FrmLanding
+    partial class FrmInicio
     {
         private System.ComponentModel.IContainer components = null;
 
@@ -30,13 +30,13 @@ namespace UI.Landing
             lblBienvenida.TabIndex = 0;
             lblBienvenida.TextAlign = ContentAlignment.MiddleCenter;
             //
-            // FrmLanding
+            // FrmInicio
             //
             AutoScaleDimensions = new SizeF(8F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(500, 300);
             Controls.Add(lblBienvenida);
-            Name = "FrmLanding";
+            Name = "FrmInicio";
             Text = "Inicio";
             ResumeLayout(false);
         }

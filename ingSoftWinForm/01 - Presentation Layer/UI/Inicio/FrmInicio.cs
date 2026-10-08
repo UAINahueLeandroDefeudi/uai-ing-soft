@@ -1,14 +1,14 @@
 using BLL;
 
-namespace UI.Landing
+namespace UI.Inicio
 {
     /// <summary>
-    /// Página de inicio mínima. Existe para que el permiso VER_LANDING_PAGE
+    /// Página de inicio mínima. Existe para que el permiso VER_INICIO
     /// (roles client, moderador y administrador) controle algo concreto.
     /// </summary>
-    public partial class FrmLanding : Form
+    public partial class FrmInicio : Form
     {
-        public FrmLanding()
+        public FrmInicio()
         {
             InitializeComponent();
 

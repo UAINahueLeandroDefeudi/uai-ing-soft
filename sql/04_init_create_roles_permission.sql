@@ -104,7 +104,7 @@ DECLARE @Permissions TABLE ([Code] NVARCHAR(50), [Name] NVARCHAR(100), [IsCompou
 INSERT INTO @Permissions ([Code], [Name], [IsCompound]) VALUES
     ('VER_MI_PERFIL',         'Ver mi perfil',            0),
     ('CERRAR_SESION',         'Cerrar sesion',            0),
-    ('VER_LANDING_PAGE',      'Ver landing page',         0),
+    ('VER_INICIO',      'Ver inicio',         0),
     ('VER_BITACORA',          'Ver bitacora',             0),
     ('GESTIONAR_ROLES',       'Gestion de roles',         0),
     ('ASIGNAR_ROLES_USUARIO', 'Asignar roles a usuarios', 0),
@@ -146,16 +146,16 @@ DECLARE @RolePermissions TABLE ([RoleName] NVARCHAR(50), [PermissionCode] NVARCH
 INSERT INTO @RolePermissions ([RoleName], [PermissionCode]) VALUES
     -- invitado: solo ver su perfil y cerrar sesion (permiso compuesto)
     ('invitado',      'SESION_BASICA'),
-    -- client: sesion basica + landing page
+    -- client: sesion basica + inicio
     ('client',        'SESION_BASICA'),
-    ('client',        'VER_LANDING_PAGE'),
+    ('client',        'VER_INICIO'),
     -- moderador: lo del client + bitacora
     ('moderador',     'SESION_BASICA'),
-    ('moderador',     'VER_LANDING_PAGE'),
+    ('moderador',     'VER_INICIO'),
     ('moderador',     'VER_BITACORA'),
     -- administrador: lo del moderador + gestion de roles
     ('administrador', 'SESION_BASICA'),
-    ('administrador', 'VER_LANDING_PAGE'),
+    ('administrador', 'VER_INICIO'),
     ('administrador', 'VER_BITACORA'),
     ('administrador', 'GESTIONAR_ROLES'),
     ('administrador', 'ASIGNAR_ROLES_USUARIO');

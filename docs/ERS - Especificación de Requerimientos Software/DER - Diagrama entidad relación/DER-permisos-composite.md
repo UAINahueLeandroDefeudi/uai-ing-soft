@@ -84,8 +84,8 @@ erDiagram
 | Rol | Permisos |
 |---|---|
 | `invitado` | `SESION_BASICA` (compuesto: `VER_MI_PERFIL` + `CERRAR_SESION`) |
-| `client` | `SESION_BASICA`, `VER_LANDING_PAGE` |
-| `moderador` | `SESION_BASICA`, `VER_LANDING_PAGE`, `VER_BITACORA` |
+| `client` | `SESION_BASICA`, `VER_INICIO` |
+| `moderador` | `SESION_BASICA`, `VER_INICIO`, `VER_BITACORA` |
 | `administrador` | todo lo del moderador + `GESTIONAR_ROLES`, `ASIGNAR_ROLES_USUARIO` |
 
 El script es idempotente (no dropea): reejecutarlo no pierde roles ni asignaciones

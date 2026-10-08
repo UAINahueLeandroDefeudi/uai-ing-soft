@@ -69,11 +69,11 @@ namespace Tests
         [Fact]
         public void Bitacora_FlattensRolesAndPermissions()
         {
-            var user = UserWith("u", RoleWith("client", 1, Compound("BASIC", Simple("PROFILE")), Simple("LANDING")));
+            var user = UserWith("u", RoleWith("client", 1, Compound("BASIC", Simple("PROFILE")), Simple("INICIO")));
 
             var registro = BitacoraManager.EventoBitacora(NameEvent.Login, "x", Priority.Low, user);
 
-            Assert.Equal("Roles: client | Permisos: PROFILE, LANDING", registro.RolesPermisos);
+            Assert.Equal("Roles: client | Permisos: PROFILE, INICIO", registro.RolesPermisos);
             Assert.Equal("client", registro.Roles);
         }
     }

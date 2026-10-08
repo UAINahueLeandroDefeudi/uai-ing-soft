@@ -8,7 +8,7 @@ namespace BE.Entity
     {
         public const string VerMiPerfil = "VER_MI_PERFIL";
         public const string CerrarSesion = "CERRAR_SESION";
-        public const string VerLandingPage = "VER_LANDING_PAGE";
+        public const string VerInicio = "VER_INICIO";
         public const string VerBitacora = "VER_BITACORA";
         public const string GestionarRoles = "GESTIONAR_ROLES";
         public const string AsignarRolesUsuario = "ASIGNAR_ROLES_USUARIO";

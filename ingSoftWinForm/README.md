@@ -82,7 +82,7 @@ Variantes con el flag `-r`:
 # Moderador: puede ver la bitácora, pero no gestionar roles
 ./sql/create-user.sh -u moderadora -p Mod12345 -f Ana -l Lopez -r moderador
 
-# Cliente: Mi perfil, Cerrar sesión e Inicio (landing page)
+# Cliente: Mi perfil, Cerrar sesión e Inicio
 ./sql/create-user.sh -u cliente1 -p Cli12345 -r client
 
 # Sin rol (no podrá hacer nada hasta que se le asigne uno)
@@ -143,7 +143,7 @@ dotnet test "ingSoftWinForm/06 - Tests/Tests/Tests.csproj"
 ## 1. Arquitectura en capas
 
 ```
-01 - Presentation Layer/UI      →  GUI.csproj        (net8.0-windows)  FrmLogin, FrmRegister, FrmMain, FrmLogout, FrmProfile, FrmEvent, FrmLanding, FrmRoleManagement
+01 - Presentation Layer/UI      →  GUI.csproj        (net8.0-windows)  FrmLogin, FrmRegister, FrmMain, FrmLogout, FrmProfile, FrmEvent, FrmInicio, FrmRoleManagement
 02 - Service Layer/Services     →  Services.csproj   (net8.0)          HashManager, SessionManager, BitacoraManager
 03 - Business Logic Layer/BLL   →  BLL.csproj        (net8.0)          SessionBLL, UserBLL, RoleBLL, BitacoraBLL
 04 - Business Entity/BE         →  BE.csproj         (net8.0)          User, Role, Permission (Composite), Bitacora, LoginResult, OperationResult, enums, mappers, bases
@@ -552,7 +552,7 @@ Tres decisiones que conviene tener presentes:
   traza tiene que sobrevivir a una baja o un renombre, y además hay filas sin usuario
   (un login con un username que no existe).
 - **`RolesPermisos` se completa con los roles y permisos del usuario** en ese momento
-  (T04), por ejemplo `Roles: client | Permisos: VER_MI_PERFIL, CERRAR_SESION, VER_LANDING_PAGE`.
+  (T04), por ejemplo `Roles: client | Permisos: VER_MI_PERFIL, CERRAR_SESION, VER_INICIO`.
   Lo arma `BitacoraManager.AplanarRolesPermisos` aplanando el Composite con
   `Permission.Flatten()` (recursivo). Queda vacío si el usuario no tiene roles.
 
@@ -669,7 +669,7 @@ sqlcmd -S localhost\SQLEXPRESS -E -C -I -W -d IF_DB -Q "SET NOCOUNT ON; SELECT i
 | `FrmLogin` | Diálogo **modal**, antes del MDI. Lo abre `Program.Main` con `ShowDialog()`. |
 | `FrmRegister` | Diálogo **modal** abierto desde `FrmLogin` (botón *Registrarse*). |
 | `FrmMain` | **Contenedor MDI** (`IsMdiContainer = true`). Es el `Application.Run(...)`. |
-| `FrmProfile`, `FrmEvent`, `FrmLanding`, `FrmRoleManagement` | **Ventanas hijas** MDI. |
+| `FrmProfile`, `FrmEvent`, `FrmInicio`, `FrmRoleManagement` | **Ventanas hijas** MDI. |
 | `FrmLogout` | Diálogo **modal** sobre el MDI (`ShowDialog(this)`), no es hijo. |
 
 Login y logout son modales a propósito: un formulario modal no puede ser hijo MDI, y
@@ -721,7 +721,7 @@ abiertas dentro del menú *Ventana*, con la marca sobre la activa.
 
 | Menú | Acción | Permiso que lo habilita |
 |---|---|---|
-| Sesión ▸ Inicio | `AbrirHijo<FrmLanding>()` | `VER_LANDING_PAGE` |
+| Sesión ▸ Inicio | `AbrirHijo<FrmInicio>()` | `VER_INICIO` |
 | Sesión ▸ Mi perfil | `AbrirHijo<FrmProfile>()` | `VER_MI_PERFIL` |
 | Sesión ▸ Bitácora | `AbrirHijo<FrmEvent>()` | `VER_BITACORA` |
 | Sesión ▸ Gestión de roles | `AbrirHijo<FrmRoleManagement>()` | `GESTIONAR_ROLES` |
@@ -758,7 +758,7 @@ graph TD
     FL -->|Cancel / error| X[Fin de la aplicacion]
     FM -->|Load: AbrirHijo si VER_MI_PERFIL| FP[FrmProfile - hijo MDI]
     FM -->|Menu Perfil| FP
-    FM -->|Menu Inicio: VER_LANDING_PAGE| FLA[FrmLanding - hijo MDI]
+    FM -->|Menu Inicio: VER_INICIO| FLA[FrmInicio - hijo MDI]
     FM -->|Menu Bitacora: VER_BITACORA| FE[FrmEvent - hijo MDI]
     FM -->|Menu Gestion de roles: GESTIONAR_ROLES| FRM[FrmRoleManagement - hijo MDI]
     FM -->|Menu Cerrar sesion: ShowDialog| FLO[FrmLogout - modal]
@@ -819,7 +819,7 @@ cómo migrar al Modelo I, donde el rol es un permiso compuesto más.)
 | Rol | Permisos |
 |---|---|
 | `invitado` | `SESION_BASICA` (compuesto: `VER_MI_PERFIL` + `CERRAR_SESION`) |
-| `client` | `SESION_BASICA` + `VER_LANDING_PAGE` |
+| `client` | `SESION_BASICA` + `VER_INICIO` |
 | `moderador` | lo del `client` + `VER_BITACORA` |
 | `administrador` | lo del `moderador` + `GESTIONAR_ROLES` + `ASIGNAR_ROLES_USUARIO` |
 

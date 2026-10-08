@@ -1,7 +1,7 @@
 using BE.Entity;
 using BLL;
 using UI.Event;
-using UI.Landing;
+using UI.Inicio;
 using UI.Login;
 using UI.Profile;
 using UI.Roles;
@@ -40,7 +40,7 @@ namespace UI
         /// </summary>
         private void AplicarPermisos()
         {
-            mnuInicio.Visible = sessionBLL.HasPermission(PermissionCode.VerLandingPage);
+            mnuInicio.Visible = sessionBLL.HasPermission(PermissionCode.VerInicio);
             mnuPerfil.Visible = sessionBLL.HasPermission(PermissionCode.VerMiPerfil);
             mnuEvent.Visible = sessionBLL.HasPermission(PermissionCode.VerBitacora);
             // La pantalla sirve a dos permisos: gestionar roles y asignarlos a usuarios.
@@ -80,7 +80,7 @@ namespace UI
                 : $"Usuario: {user.Username} ({user.FirstName} {user.LastName})";
         }
 
-        private void MnuInicio_Click(object sender, EventArgs e) => AbrirHijo<FrmLanding>();
+        private void MnuInicio_Click(object sender, EventArgs e) => AbrirHijo<FrmInicio>();
 
         private void MnuPerfil_Click(object sender, EventArgs e) => AbrirHijo<FrmProfile>();
 

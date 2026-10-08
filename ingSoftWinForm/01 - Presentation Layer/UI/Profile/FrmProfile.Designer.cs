@@ -18,6 +18,9 @@ namespace UI.Profile
         private System.Windows.Forms.Label lblUltimoAcceso;
         private System.Windows.Forms.Label lblAlta;
 
+        private System.Windows.Forms.Label lblRolesCaption;
+        private System.Windows.Forms.TreeView tvRoles;
+
         private System.Windows.Forms.Button btnCerrar;
 
         protected override void Dispose(bool disposing)
@@ -46,6 +49,8 @@ namespace UI.Profile
             this.lblEstado = new System.Windows.Forms.Label();
             this.lblUltimoAcceso = new System.Windows.Forms.Label();
             this.lblAlta = new System.Windows.Forms.Label();
+            this.lblRolesCaption = new System.Windows.Forms.Label();
+            this.tvRoles = new System.Windows.Forms.TreeView();
             this.btnCerrar = new System.Windows.Forms.Button();
             this.SuspendLayout();
             //
@@ -157,6 +162,24 @@ namespace UI.Profile
             this.lblAlta.TabIndex = 11;
             this.lblAlta.Text = "-";
             //
+            // lblRolesCaption (oculto salvo que el usuario tenga roles distintos de 'invitado')
+            //
+            this.lblRolesCaption.AutoSize = true;
+            this.lblRolesCaption.Location = new System.Drawing.Point(24, 208);
+            this.lblRolesCaption.Name = "lblRolesCaption";
+            this.lblRolesCaption.Size = new System.Drawing.Size(120, 15);
+            this.lblRolesCaption.TabIndex = 13;
+            this.lblRolesCaption.Text = "Roles y permisos";
+            this.lblRolesCaption.Visible = false;
+            //
+            // tvRoles
+            //
+            this.tvRoles.Location = new System.Drawing.Point(24, 232);
+            this.tvRoles.Name = "tvRoles";
+            this.tvRoles.Size = new System.Drawing.Size(394, 180);
+            this.tvRoles.TabIndex = 14;
+            this.tvRoles.Visible = false;
+            //
             // btnCerrar
             //
             this.btnCerrar.Location = new System.Drawing.Point(343, 212);
@@ -184,6 +207,8 @@ namespace UI.Profile
             this.Controls.Add(this.lblUltimoAcceso);
             this.Controls.Add(this.lblAltaCaption);
             this.Controls.Add(this.lblAlta);
+            this.Controls.Add(this.lblRolesCaption);
+            this.Controls.Add(this.tvRoles);
             this.Controls.Add(this.btnCerrar);
             this.MaximizeBox = false;
             this.MinimizeBox = false;

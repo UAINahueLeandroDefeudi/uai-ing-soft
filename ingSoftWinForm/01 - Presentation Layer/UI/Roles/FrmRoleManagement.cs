@@ -6,7 +6,7 @@ namespace UI.Roles
 {
     /// <summary>
     /// Gestión de roles y permisos (T04). Los tres TreeView se llenan con funciones
-    /// recursivas que recorren el Composite de permisos (MostrarRecursivo).
+    /// recursivas que recorren el Composite de permisos (PermissionTreeBuilder.MostrarRecursivo).
     /// El Tag de cada nodo guarda el objeto de negocio (Role o Permission).
     /// </summary>
     public partial class FrmRoleManagement : Form
@@ -45,7 +45,7 @@ namespace UI.Roles
                 var roles = roleBLL.GetRoles();
                 var catalogo = roleBLL.GetPermissionCatalog();
 
-                LlenarArbolRoles(tvRoles, roles);
+                PermissionTreeBuilder.LlenarArbolRoles(tvRoles, roles);
                 LlenarCatalogo(catalogo, roles);
                 CargarUsuarios();
                 CargarPermisosEfectivos();
@@ -75,26 +75,7 @@ namespace UI.Roles
                 return;
             }
 
-            LlenarArbolRoles(tvEfectivos, roleBLL.GetUserRoles(usuario));
-        }
-
-        /// <summary>Un nodo raíz por rol; debajo, su árbol de permisos.</summary>
-        private void LlenarArbolRoles(TreeView tv, IEnumerable<Role> roles)
-        {
-            tv.BeginUpdate();
-            tv.Nodes.Clear();
-
-            foreach (var rol in roles)
-            {
-                var nodoRol = new TreeNode(rol.Name) { Tag = rol, ForeColor = Color.Blue };
-                tv.Nodes.Add(nodoRol);
-
-                foreach (var permiso in rol.Permissions)
-                    MostrarRecursivo(nodoRol, permiso);
-            }
-
-            tv.ExpandAll();
-            tv.EndUpdate();
+            PermissionTreeBuilder.LlenarArbolRoles(tvEfectivos, roleBLL.GetUserRoles(usuario));
         }
 
         /// <summary>
@@ -113,33 +94,15 @@ namespace UI.Roles
                 nodoRoles.Nodes.Add(new TreeNode(rol.Name) { Tag = rol, ForeColor = Color.Blue });
 
             foreach (var permiso in catalogo.Where(p => p.IsCompound))
-                MostrarRecursivo(nodoCompuestos, permiso);
+                PermissionTreeBuilder.MostrarRecursivo(nodoCompuestos, permiso);
 
             foreach (var permiso in catalogo.Where(p => !p.IsCompound))
-                MostrarRecursivo(nodoSimples, permiso);
+                PermissionTreeBuilder.MostrarRecursivo(nodoSimples, permiso);
 
             tvCatalogo.Nodes.AddRange([nodoRoles, nodoCompuestos, nodoSimples]);
             tvCatalogo.ExpandAll();
             tvCatalogo.EndUpdate();
         }
-
-        /// <summary>
-        /// Función recursiva del Composite: agrega un nodo para <paramref name="permiso"/>
-        /// bajo <paramref name="nodoPadre"/> y desciende por sus hijos. La hoja
-        /// (permiso simple) devuelve una lista vacía y corta la recursión.
-        /// </summary>
-        private static void MostrarRecursivo(TreeNode nodoPadre, Permission permiso)
-        {
-            var nodo = new TreeNode(permiso.Name) { Tag = permiso };
-            AsignarColorNodo(nodo, permiso);
-            nodoPadre.Nodes.Add(nodo);
-
-            foreach (var hijo in permiso.GetChildren())
-                MostrarRecursivo(nodo, hijo);
-        }
-
-        private static void AsignarColorNodo(TreeNode nodo, Permission permiso)
-            => nodo.ForeColor = permiso.IsCompound ? Color.DarkGreen : Color.Black;
 
         // ---------- Selección ----------
 

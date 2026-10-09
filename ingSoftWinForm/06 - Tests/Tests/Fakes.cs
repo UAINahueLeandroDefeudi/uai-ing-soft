@@ -80,6 +80,80 @@ namespace Tests
         }
     }
 
+    /// <summary>Idiomas y textos en memoria. Los textos se cargan por código de idioma y clave.</summary>
+    public class FakeIdiomaDAL : IIdiomaDAL
+    {
+        private int nextId = 10;
+
+        public List<Idioma> Idiomas { get; } = new()
+        {
+            new Idioma { Id = 1, Codigo = "es", Nombre = "Español", EsDefault = true, Activo = true },
+            new Idioma { Id = 2, Codigo = "en", Nombre = "English", EsDefault = false, Activo = true }
+        };
+
+        public Dictionary<string, string> Etiquetas { get; } = new();                    // clave -> id lógico
+        public Dictionary<(string Clave, int IdIdioma), string> Textos { get; } = new();
+        public Dictionary<Guid, int> IdiomaPorUsuario { get; } = new();
+
+        public int GetTextosCalls { get; private set; }
+
+        public void Texto(string clave, int idIdioma, string texto)
+        {
+            Etiquetas[clave] = clave;
+            Textos[(clave, idIdioma)] = texto;
+        }
+
+        public List<Idioma> GetAll() => Idiomas;
+        public Idioma? GetById(int id) => Idiomas.FirstOrDefault(i => i.Id == id);
+        public Idioma? GetByCodigo(string codigo) => Idiomas.FirstOrDefault(i => i.Codigo == codigo);
+        public Idioma? GetDefault() => Idiomas.FirstOrDefault(i => i.EsDefault);
+
+        public int Insert(Idioma idioma)
+        {
+            idioma.Id = nextId++;
+            idioma.EsDefault = false;
+            idioma.Activo = true;
+            Idiomas.Add(idioma);
+            return idioma.Id;
+        }
+
+        public void Update(Idioma idioma) { }
+
+        public Dictionary<string, string> GetTextos(int idIdioma)
+        {
+            GetTextosCalls++;
+            return Textos.Where(t => t.Key.IdIdioma == idIdioma).ToDictionary(t => t.Key.Clave, t => t.Value);
+        }
+
+        public List<TraduccionItem> GetTraducciones(int idIdioma)
+        {
+            var porDefecto = GetDefault()!.Id;
+            return Etiquetas.Keys.Select((clave, i) => new TraduccionItem
+            {
+                IdEtiqueta = i + 1,
+                Clave = clave,
+                TextoDefault = Textos.GetValueOrDefault((clave, porDefecto)) ?? string.Empty,
+                Texto = Textos.GetValueOrDefault((clave, idIdioma))
+            }).ToList();
+        }
+
+        public void UpsertTraduccion(int idEtiqueta, int idIdioma, string? texto)
+        {
+            var clave = Etiquetas.Keys.ElementAt(idEtiqueta - 1);
+            if (texto == null) Textos.Remove((clave, idIdioma));
+            else Textos[(clave, idIdioma)] = texto;
+        }
+
+        public void SetUserIdioma(Guid userId, int idIdioma) => IdiomaPorUsuario[userId] = idIdioma;
+    }
+
+    /// <summary>Suscriptor de prueba: guarda cada idioma que le notifican.</summary>
+    public class SuscriberEspia : BE.Observer.ISuscriberIdioma
+    {
+        public List<string> Recibidos { get; } = new();
+        public void Actualizar(Idioma idiomaActivo) => Recibidos.Add(idiomaActivo.Codigo);
+    }
+
     /// <summary>Armado de los árboles de prueba (mismos códigos que el seed SQL).</summary>
     public static class Samples
     {

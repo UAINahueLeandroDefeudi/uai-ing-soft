@@ -8,6 +8,7 @@
 #   [User]                          01_create_table_User.sql        (solo si falta)
 #   [Bitacora]                      03_create_table_Bitacora.sql    (solo si falta)
 #   [Permission], [Role], ...       04_init_create_roles_permission.sql
+#   [Idioma], [Etiqueta], [Traduccion]  05_create_idiomas.sql        (idempotente; siembra es/en, en incompleto)
 #                                   (idempotente: crea lo que falta y resiembra sin duplicar)
 #
 # Uso:
@@ -58,7 +59,7 @@ to_win() { if command -v cygpath >/dev/null 2>&1; then cygpath -w "$1"; else pri
 
 # -I: QUOTED_IDENTIFIER ON (lo exige el indice filtrado UX_User_Email). -C: confiar en el certificado.
 run_sql()   { sqlcmd -S "$SERVER" -E -C -I -b "$@"; }
-run_file()  { run_sql -d "$DATABASE" -i "$(to_win "$SQL_DIR/$1")"; }
+run_file()  { run_sql -f 65001 -d "$DATABASE" -i "$(to_win "$SQL_DIR/$1")"; }
 scalar()    { run_sql -h -1 -W -Q "SET NOCOUNT ON; $1" | tr -d '[:space:]'; }
 
 # --- 1. Conexion ---
@@ -104,6 +105,10 @@ fi
 echo "Roles y permisos: creando lo que falte y sembrando el catalogo ..."
 run_file "04_init_create_roles_permission.sql" >/dev/null
 
+# Idiomas (T05): idempotente. Va despues de 04 porque siembra el permiso GESTIONAR_IDIOMAS.
+echo "Idiomas: creando lo que falte y sembrando es/en ..."
+run_file "05_create_idiomas.sql" >/dev/null
+
 echo
 echo "Listo. Estado de IF_DB:"
 run_sql -d "$DATABASE" -W -Q "SET NOCOUNT ON;
@@ -111,7 +116,10 @@ SELECT 'User'       AS [Tabla], COUNT(*) AS [Filas] FROM [dbo].[User]
 UNION ALL SELECT 'Bitacora',   COUNT(*) FROM [dbo].[Bitacora]
 UNION ALL SELECT 'Permission', COUNT(*) FROM [dbo].[Permission]
 UNION ALL SELECT 'Role',       COUNT(*) FROM [dbo].[Role]
-UNION ALL SELECT 'User_Role',  COUNT(*) FROM [dbo].[User_Role];"
+UNION ALL SELECT 'User_Role',  COUNT(*) FROM [dbo].[User_Role]
+UNION ALL SELECT 'Idioma',     COUNT(*) FROM [dbo].[Idioma]
+UNION ALL SELECT 'Etiqueta',   COUNT(*) FROM [dbo].[Etiqueta]
+UNION ALL SELECT 'Traduccion', COUNT(*) FROM [dbo].[Traduccion];"
 
 echo
 echo "Siguiente paso: crear un usuario y darle un rol, por ejemplo:"

@@ -1,5 +1,6 @@
 using BE.Enum;
 using BLL;
+using UI.Idiomas;
 
 // El namespace UI.Event tapa al tipo BE.Entity.Bitacora tanto como lo hacía UI.Bitacora,
 // así que el alias sigue haciendo falta para nombrar la entidad.
@@ -11,14 +12,17 @@ namespace UI.Event
     /// Visor de sólo lectura de la bitácora de auditoría, con filtros por rango de
     /// fechas, tipo, evento y prioridad.
     /// </summary>
-    public partial class FrmEvent : Form
+    public partial class FrmEvent : FrmTraducible
     {
         /// <summary>Primer ítem de los tres combos: no filtrar por esa columna.</summary>
-        private const string Todos = "(todos)";
+        private static string Todos => T("FrmEvent.todos");
 
         private const int DiasPorDefecto = 7;
 
         private readonly BitacoraBLL bitacoraBLL;
+
+        /// <summary>Cantidad de registros mostrados (null = no hay datos), para rearmar el total al cambiar de idioma.</summary>
+        private int? totalMostrado;
 
         public FrmEvent()
         {
@@ -88,18 +92,50 @@ namespace UI.Event
                 var registros = consulta();
 
                 dgvEventos.DataSource = registros.Select(Proyectar).ToList();
-                lblTotal.Text = $"{registros.Count} registro(s)";
+                totalMostrado = registros.Count;
+                TraducirEncabezados();
+                MostrarTotal();
             }
             catch (Exception ex)
             {
                 dgvEventos.DataSource = null;
-                lblTotal.Text = "-";
+                totalMostrado = null;
+                MostrarTotal();
 
-                MessageBox.Show(this, "No se pudo leer la bitácora.", "Bitácora",
+                MessageBox.Show(this, T("FrmEvent.errorLectura"), T("FrmEvent.Title"),
                     MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 System.Diagnostics.Debug.WriteLine(ex);
             }
         }
+
+        /// <summary>Textos que arma el código y no un control: "(todos)", encabezados y total.</summary>
+        protected override void OnIdiomaAplicado()
+        {
+            foreach (var combo in new[] { cboTipo, cboEvento, cboPrioridad })
+            {
+                if (combo.Items.Count == 0) continue;
+
+                // Reemplazar el ítem 0 no cambia la selección; sólo se redibuja su texto.
+                var seleccionado = combo.SelectedIndex;
+                combo.Items[0] = Todos;
+                combo.SelectedIndex = seleccionado;
+            }
+
+            TraducirEncabezados();
+            MostrarTotal();
+        }
+
+        private void TraducirEncabezados()
+        {
+            foreach (DataGridViewColumn columna in dgvEventos.Columns)
+            {
+                var leyenda = Idiomas.Traducir($"FrmEvent.col.{columna.DataPropertyName}");
+                if (leyenda.Existe) columna.HeaderText = leyenda.Texto;
+            }
+        }
+
+        private void MostrarTotal()
+            => lblTotal.Text = totalMostrado.HasValue ? T("FrmEvent.total", totalMostrado.Value) : "-";
 
         private static Fila Proyectar(BitacoraEntity bitacora) => new Fila
         {
@@ -117,7 +153,8 @@ namespace UI.Event
         };
 
         /// <summary>
-        /// Lo que ve el grid: los nombres de propiedad son los encabezados de columna.
+        /// Lo que ve el grid: los nombres de propiedad identifican la columna
+        /// (clave FrmEvent.col.&lt;Propiedad&gt;); el encabezado visible sale de la traducción.
         /// </summary>
         private class Fila
         {

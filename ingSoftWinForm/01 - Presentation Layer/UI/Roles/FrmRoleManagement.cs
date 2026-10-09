@@ -1,6 +1,7 @@
 using BE.Entity;
 using BE.Enum;
 using BLL;
+using UI.Idiomas;
 
 namespace UI.Roles
 {
@@ -9,7 +10,7 @@ namespace UI.Roles
     /// recursivas que recorren el Composite de permisos (PermissionTreeBuilder.MostrarRecursivo).
     /// El Tag de cada nodo guarda el objeto de negocio (Role o Permission).
     /// </summary>
-    public partial class FrmRoleManagement : Form
+    public partial class FrmRoleManagement : FrmTraducible
     {
         private readonly RoleBLL roleBLL;
         private readonly SessionBLL sessionBLL;
@@ -37,17 +38,25 @@ namespace UI.Roles
 
             if (!gestionaRoles)
             {
+                // Name = "nota": el nombre es la clave de traducción (FrmRoleManagement.nota).
                 Controls.Add(new Label
                 {
+                    Name = "nota",
                     AutoSize = false,
                     Location = new System.Drawing.Point(430, 440),
                     Size = new System.Drawing.Size(560, 50),
                     ForeColor = System.Drawing.SystemColors.GrayText,
-                    Text = "Si desea gestionar roles o permisos, contáctese con un administrador."
+                    Text = T("FrmRoleManagement.nota")
                 });
             }
 
             CargarTodo();
+        }
+
+        /// <summary>Los nodos "ROLES", "PERMISOS..." los arma el código: al cambiar el idioma se vuelven a armar.</summary>
+        protected override void OnIdiomaAplicado()
+        {
+            if (IsHandleCreated && tvCatalogo.Nodes.Count > 0) CargarTodo();
         }
 
         // ---------- Carga ----------
@@ -66,7 +75,7 @@ namespace UI.Roles
             }
             catch (Exception ex)
             {
-                MostrarErrorSistema("No se pudo cargar la información de roles", ex);
+                MostrarErrorSistema(T("FrmRoleManagement.errorCarga"), ex);
             }
         }
 
@@ -100,9 +109,9 @@ namespace UI.Roles
             tvCatalogo.BeginUpdate();
             tvCatalogo.Nodes.Clear();
 
-            var nodoRoles = new TreeNode("ROLES") { NodeFont = new Font(tvCatalogo.Font, FontStyle.Bold) };
-            var nodoCompuestos = new TreeNode("PERMISOS COMPUESTOS") { NodeFont = new Font(tvCatalogo.Font, FontStyle.Bold) };
-            var nodoSimples = new TreeNode("PERMISOS SIMPLES") { NodeFont = new Font(tvCatalogo.Font, FontStyle.Bold) };
+            var nodoRoles = new TreeNode(T("FrmRoleManagement.nodoRoles")) { NodeFont = new Font(tvCatalogo.Font, FontStyle.Bold) };
+            var nodoCompuestos = new TreeNode(T("FrmRoleManagement.nodoCompuestos")) { NodeFont = new Font(tvCatalogo.Font, FontStyle.Bold) };
+            var nodoSimples = new TreeNode(T("FrmRoleManagement.nodoSimples")) { NodeFont = new Font(tvCatalogo.Font, FontStyle.Bold) };
 
             foreach (var rol in roles)
                 nodoRoles.Nodes.Add(new TreeNode(rol.Name) { Tag = rol, ForeColor = Color.Blue });
@@ -144,9 +153,9 @@ namespace UI.Roles
         private void BtnEliminarRol_Click(object sender, EventArgs e)
         {
             var rol = RolDelNodo(tvRoles.SelectedNode) ?? RolDelNodo(tvCatalogo.SelectedNode);
-            if (rol == null) { Avisar("Seleccione un rol."); return; }
+            if (rol == null) { Avisar(T("FrmRoleManagement.selRol")); return; }
 
-            var confirmar = MessageBox.Show(this, $"¿Eliminar el rol '{rol.Name}'?", "Eliminar rol",
+            var confirmar = MessageBox.Show(this, T("FrmRoleManagement.confirmarEliminar", rol.Name), T("FrmRoleManagement.tituloEliminar"),
                 MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             if (confirmar != DialogResult.Yes) return;
 
@@ -156,10 +165,10 @@ namespace UI.Roles
         private void BtnAsignarPermisoRol_Click(object sender, EventArgs e)
         {
             var rol = RolDelNodo(tvRoles.SelectedNode);
-            if (rol == null) { Avisar("Seleccione el rol destino en la estructura de roles."); return; }
+            if (rol == null) { Avisar(T("FrmRoleManagement.selRolDestino")); return; }
 
             if (tvCatalogo.SelectedNode?.Tag is not Permission permiso)
-            { Avisar("Seleccione un permiso en el catálogo."); return; }
+            { Avisar(T("FrmRoleManagement.selPermisoCatalogo")); return; }
 
             Ejecutar(() => roleBLL.AddPermissionToRole(rol, permiso));
         }
@@ -168,27 +177,27 @@ namespace UI.Roles
         {
             var nodo = tvRoles.SelectedNode;
             if (nodo?.Tag is not Permission permiso || nodo.Parent?.Tag is not Role rol)
-            { Avisar("Seleccione, en la estructura de roles, un permiso asignado directamente a un rol."); return; }
+            { Avisar(T("FrmRoleManagement.selPermisoAsignado")); return; }
 
             Ejecutar(() => roleBLL.RemovePermissionFromRole(rol, permiso));
         }
 
         private void BtnAsignarRolUsuario_Click(object sender, EventArgs e)
         {
-            if (cbUsuarios.SelectedItem is not User usuario) { Avisar("Seleccione un usuario."); return; }
+            if (cbUsuarios.SelectedItem is not User usuario) { Avisar(T("FrmRoleManagement.selUsuario")); return; }
 
             var rol = tvCatalogo.SelectedNode?.Tag as Role;
-            if (rol == null) { Avisar("Seleccione un rol en el catálogo."); return; }
+            if (rol == null) { Avisar(T("FrmRoleManagement.selRolCatalogo")); return; }
 
             Ejecutar(() => roleBLL.AssignRoleToUser(usuario, rol));
         }
 
         private void BtnQuitarRolUsuario_Click(object sender, EventArgs e)
         {
-            if (cbUsuarios.SelectedItem is not User usuario) { Avisar("Seleccione un usuario."); return; }
+            if (cbUsuarios.SelectedItem is not User usuario) { Avisar(T("FrmRoleManagement.selUsuario")); return; }
 
             var rol = tvEfectivos.SelectedNode?.Tag as Role;
-            if (rol == null) { Avisar("Seleccione, en los permisos efectivos, el rol a quitar."); return; }
+            if (rol == null) { Avisar(T("FrmRoleManagement.selRolEfectivo")); return; }
 
             Ejecutar(() => roleBLL.RemoveRoleFromUser(usuario, rol));
         }
@@ -204,7 +213,7 @@ namespace UI.Roles
 
                 if (!resultado.Success)
                 {
-                    MessageBox.Show(this, resultado.Message, "No se pudo completar", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show(this, T(resultado), T("FrmRoleManagement.tituloNoCompletado"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -213,18 +222,18 @@ namespace UI.Roles
             }
             catch (Exception ex)
             {
-                MostrarErrorSistema("Error inesperado en la gestión de roles", ex);
+                MostrarErrorSistema(T("FrmRoleManagement.errorInesperado"), ex);
             }
         }
 
         private void Avisar(string mensaje)
-            => MessageBox.Show(this, mensaje, "Gestión de roles", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            => MessageBox.Show(this, mensaje, T("FrmRoleManagement.Title"), MessageBoxButtons.OK, MessageBoxIcon.Information);
 
         private void MostrarErrorSistema(string mensaje, Exception ex)
         {
             bitacoraBLL.RegistrarError(NameEvent.ErrorSistema, $"{mensaje}: {ex.Message}", Priority.High);
             System.Diagnostics.Debug.WriteLine(ex);
-            MessageBox.Show(this, $"{mensaje}. Intente nuevamente.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(this, T("FrmRoleManagement.reintentar", mensaje), T("FrmRoleManagement.tituloError"), MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 }

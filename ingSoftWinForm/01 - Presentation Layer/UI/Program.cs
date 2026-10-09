@@ -15,10 +15,19 @@ namespace UI
             ApplicationConfiguration.Initialize();
 
             // CU-01: sin sesión iniciada no se entra al menú principal.
-            using var login = new FrmLogin();
-            if (login.ShowDialog() != DialogResult.OK) return;
+            // Al cerrar sesión se vuelve al login; cualquier otra salida (Salir, cancelar el login) termina la app.
+            while (true)
+            {
+                using (var login = new FrmLogin())
+                {
+                    if (login.ShowDialog() != DialogResult.OK) return;
+                }
 
-            Application.Run(new FrmMain());
+                using var main = new FrmMain();
+                Application.Run(main);
+
+                if (!main.SesionCerrada) return;
+            }
         }
     }
 }

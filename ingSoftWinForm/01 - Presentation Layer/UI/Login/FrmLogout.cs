@@ -1,8 +1,9 @@
 using BLL;
+using UI.Idiomas;
 
 namespace UI.Login
 {
-    public partial class FrmLogout : Form
+    public partial class FrmLogout : FrmTraducible
     {
         private readonly SessionBLL sessionBLL;
 

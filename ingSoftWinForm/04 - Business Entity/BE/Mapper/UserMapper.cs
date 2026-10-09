@@ -21,6 +21,7 @@ namespace BE.Mapper
                 IsBlocked = (bool)row["IsBlocked"],
                 IsActive = (bool)row["IsActive"],
                 LastLoginAt = row["LastLoginAt"] as DateTime?,
+                IdIdioma = row["IdIdioma"] as int?,
                 CreatedAt = (DateTime)row["CreatedAt"],
                 CreatedBy = row["CreatedBy"] as string,
                 UpdatedAt = row["UpdatedAt"] as DateTime?,

@@ -1,4 +1,5 @@
 using BLL;
+using UI.Idiomas;
 
 namespace UI.Login
 {
@@ -6,7 +7,7 @@ namespace UI.Login
     /// Alta de usuario abierta a cualquiera (T04). El usuario creado recibe siempre
     /// el rol 'invitado'; no se puede elegir otro desde acá.
     /// </summary>
-    public partial class FrmRegister : Form
+    public partial class FrmRegister : FrmTraducible
     {
         private readonly UserBLL userBLL;
 
@@ -30,18 +31,18 @@ namespace UI.Login
 
                 if (!resultado.Success)
                 {
-                    lblError.Text = resultado.Message;
+                    lblError.Text = T(resultado);
                     return;
                 }
 
                 RegisteredUsername = txtUsername.Text.Trim();
-                MessageBox.Show(this, resultado.Message, "Registro", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show(this, T(resultado), T("FrmRegister.msgTitle"), MessageBoxButtons.OK, MessageBoxIcon.Information);
                 DialogResult = DialogResult.OK;
                 Close();
             }
             catch (Exception ex)
             {
-                lblError.Text = "No se pudo conectar con el servidor. Intente nuevamente.";
+                lblError.Text = T("msg.login.noConnection");
                 System.Diagnostics.Debug.WriteLine(ex);
             }
         }

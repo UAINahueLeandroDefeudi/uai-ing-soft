@@ -9,6 +9,7 @@ namespace BLL
     /// <summary>
     /// Alta de usuarios abierta a cualquiera (T04): todo usuario que se registra por su
     /// cuenta recibe el rol 'invitado'. Los demás roles los asigna un administrador.
+    /// T05: los resultados llevan la clave de la etiqueta del mensaje (msg.user.*), no el texto.
     /// </summary>
     public class UserBLL
     {
@@ -36,15 +37,15 @@ namespace BLL
             email = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
 
             var error = Validate(username, password, confirmPassword, firstName, lastName, email);
-            if (error != null) return OperationResult.Fail(error);
+            if (error != null) return OperationResult.Fail(error.Value.Key, error.Value.Args);
 
             try
             {
                 if (userDAL.GetByUsername(username) != null)
-                    return OperationResult.Fail("Ya existe un usuario con ese nombre de usuario.");
+                    return OperationResult.Fail("msg.user.usernameExists");
 
                 if (email != null && userDAL.EmailExists(email))
-                    return OperationResult.Fail("Ya existe un usuario con ese email.");
+                    return OperationResult.Fail("msg.user.emailExists");
 
                 var salt = HashManager.GenerateSalt();
                 var user = new User
@@ -64,37 +65,37 @@ namespace BLL
                 bitacoraBLL.RegistrarEvento(NameEvent.CrearUsuario,
                     $"Registro de usuario '{username}' con rol '{RoleName.Invitado}'", Priority.Low, user);
 
-                return OperationResult.Ok("Usuario registrado. Ya podés iniciar sesión.");
+                return OperationResult.Ok("msg.user.registered");
             }
             catch (Exception ex)
             {
                 bitacoraBLL.RegistrarError(NameEvent.ErrorSistema,
                     $"Falló el registro del usuario '{username}': {ex.Message}", Priority.High);
 
-                return OperationResult.Fail("No se pudo registrar el usuario. Intente nuevamente.");
+                return OperationResult.Fail("msg.user.registerFailed");
             }
         }
 
-        private static string? Validate(string username, string password, string confirmPassword,
+        private static (string Key, object[] Args)? Validate(string username, string password, string confirmPassword,
             string firstName, string lastName, string? email)
         {
             if (username.Length < MinUsernameLength || username.Length > MaxUsernameLength)
-                return $"El usuario debe tener entre {MinUsernameLength} y {MaxUsernameLength} caracteres.";
+                return ("msg.user.usernameLength", [MinUsernameLength, MaxUsernameLength]);
 
             if (username.Any(char.IsWhiteSpace))
-                return "El usuario no puede contener espacios.";
+                return ("msg.user.usernameSpaces", []);
 
             if (password.Length < MinPasswordLength)
-                return $"La contraseña debe tener al menos {MinPasswordLength} caracteres.";
+                return ("msg.user.passwordLength", [MinPasswordLength]);
 
             if (password != confirmPassword)
-                return "Las contraseñas no coinciden.";
+                return ("msg.user.passwordMismatch", []);
 
             if (firstName.Length == 0 || lastName.Length == 0)
-                return "El nombre y el apellido son obligatorios.";
+                return ("msg.user.namesRequired", []);
 
             if (email != null && !MailAddress.TryCreate(email, out _))
-                return "El email no tiene un formato válido.";
+                return ("msg.user.emailInvalid", []);
 
             return null;
         }

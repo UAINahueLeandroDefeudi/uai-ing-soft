@@ -11,6 +11,7 @@ namespace BLL
     /// sí son un catálogo fijo: no se crean, modifican ni eliminan.
     /// Cada operación valida el permiso de quien la ejecuta (defensa en profundidad:
     /// no depende de que la UI haya ocultado el botón) y queda en bitácora.
+    /// T05: los resultados llevan la clave de la etiqueta del mensaje (msg.role.*), no el texto.
     /// </summary>
     public class RoleBLL
     {
@@ -49,17 +50,17 @@ namespace BLL
             if (!Authorize(PermissionCode.GestionarRoles, "crear un rol")) return Denied();
 
             name = name.Trim();
-            if (name.Length == 0) return OperationResult.Fail("El nombre del rol es obligatorio.");
+            if (name.Length == 0) return OperationResult.Fail("msg.role.nameRequired");
             if (name.Length > MaxRoleNameLength)
-                return OperationResult.Fail($"El nombre del rol no puede superar {MaxRoleNameLength} caracteres.");
+                return OperationResult.Fail("msg.role.nameTooLong", MaxRoleNameLength);
             if (roleDAL.GetByName(name) != null)
-                return OperationResult.Fail("Ya existe un rol con ese nombre.");
+                return OperationResult.Fail("msg.role.exists");
 
             return Execute(NameEvent.CrearRol, $"Creación del rol '{name}'", () =>
             {
                 var role = new Role { Name = name };
                 roleDAL.Insert(role, SessionManager.GetInstance.User.Username);
-            }, "Rol creado.");
+            }, "msg.role.created");
         }
 
         public OperationResult DeleteRole(Role role)
@@ -67,12 +68,12 @@ namespace BLL
             if (!Authorize(PermissionCode.GestionarRoles, "eliminar un rol")) return Denied();
 
             if (role.Name == RoleName.Invitado)
-                return OperationResult.Fail("El rol 'invitado' es del sistema y no se puede eliminar.");
+                return OperationResult.Fail("msg.role.invitadoSystem");
             if (roleDAL.HasUsers(role.Id))
-                return OperationResult.Fail("El rol tiene usuarios asignados. Quitaselo a los usuarios antes de eliminarlo.");
+                return OperationResult.Fail("msg.role.hasUsers");
 
             return Execute(NameEvent.EliminarRol, $"Eliminación del rol '{role.Name}'",
-                () => roleDAL.Delete(role.Id), "Rol eliminado.");
+                () => roleDAL.Delete(role.Id), "msg.role.deleted");
         }
 
         // ---- Permisos de un rol ----
@@ -82,14 +83,14 @@ namespace BLL
             if (!Authorize(PermissionCode.GestionarRoles, "agregar un permiso a un rol")) return Denied();
 
             if (role.Grants(permission.Code))
-                return OperationResult.Fail($"El rol '{role.Name}' ya otorga '{permission.Name}'.");
+                return OperationResult.Fail("msg.role.alreadyGrants", role.Name, permission.Name);
 
             return Execute(NameEvent.AsignarPermisoRol,
                 $"Se agregó el permiso '{permission.Code}' al rol '{role.Name}'", () =>
                 {
                     roleDAL.AddPermission(role.Id, permission.Id);
                     role.AddPermission(permission);
-                }, "Permiso agregado al rol.");
+                }, "msg.role.permAdded");
         }
 
         public OperationResult RemovePermissionFromRole(Role role, Permission permission)
@@ -97,15 +98,14 @@ namespace BLL
             if (!Authorize(PermissionCode.GestionarRoles, "quitar un permiso de un rol")) return Denied();
 
             if (!role.Permissions.Any(p => p.Code == permission.Code))
-                return OperationResult.Fail(
-                    $"'{permission.Name}' no está asignado directamente al rol '{role.Name}' (forma parte de otro permiso compuesto).");
+                return OperationResult.Fail("msg.role.permNotDirect", permission.Name, role.Name);
 
             return Execute(NameEvent.QuitarPermisoRol,
                 $"Se quitó el permiso '{permission.Code}' del rol '{role.Name}'", () =>
                 {
                     roleDAL.RemovePermission(role.Id, permission.Id);
                     role.RemovePermission(permission);
-                }, "Permiso quitado del rol.");
+                }, "msg.role.permRemoved");
         }
 
         // ---- Roles de un usuario ----
@@ -115,11 +115,11 @@ namespace BLL
             if (!Authorize(PermissionCode.AsignarRolesUsuario, "asignar un rol a un usuario")) return Denied();
 
             if (roleDAL.GetByUser(user.Id).Any(r => r.Id == role.Id))
-                return OperationResult.Fail($"'{user.Username}' ya tiene el rol '{role.Name}'.");
+                return OperationResult.Fail("msg.role.userHas", user.Username, role.Name);
 
             return Execute(NameEvent.AsignarRolUsuario,
                 $"Se asignó el rol '{role.Name}' al usuario '{user.Username}'",
-                () => roleDAL.AssignToUser(user.Id, role.Id), "Rol asignado al usuario.");
+                () => roleDAL.AssignToUser(user.Id, role.Id), "msg.role.assigned");
         }
 
         public OperationResult RemoveRoleFromUser(User user, Role role)
@@ -128,15 +128,15 @@ namespace BLL
 
             var current = roleDAL.GetByUser(user.Id);
             if (current.All(r => r.Id != role.Id))
-                return OperationResult.Fail($"'{user.Username}' no tiene el rol '{role.Name}'.");
+                return OperationResult.Fail("msg.role.userHasNot", user.Username, role.Name);
 
             // Evita que el último administrador se deje sin acceso a la gestión.
             if (user.Id == SessionManager.GetInstance.User.Id && role.Grants(PermissionCode.GestionarRoles))
-                return OperationResult.Fail("No podés quitarte a vos mismo un rol que otorga la gestión de roles.");
+                return OperationResult.Fail("msg.role.selfRemove");
 
             return Execute(NameEvent.QuitarRolUsuario,
                 $"Se quitó el rol '{role.Name}' al usuario '{user.Username}'",
-                () => roleDAL.RemoveFromUser(user.Id, role.Id), "Rol quitado al usuario.");
+                () => roleDAL.RemoveFromUser(user.Id, role.Id), "msg.role.unassigned");
         }
 
         // ---- Soporte ----
@@ -155,22 +155,21 @@ namespace BLL
             return false;
         }
 
-        private static OperationResult Denied()
-            => OperationResult.Fail("No tenés permiso para realizar esta operación.");
+        private static OperationResult Denied() => OperationResult.Fail("msg.noPermiso");
 
         /// <summary>Ejecuta la acción; si la base falla lo deja en bitácora y devuelve un error genérico.</summary>
-        private OperationResult Execute(NameEvent nameEvent, string detail, Action action, string okMessage)
+        private OperationResult Execute(NameEvent nameEvent, string detail, Action action, string okKey)
         {
             try
             {
                 action();
                 bitacoraBLL.RegistrarEvento(nameEvent, detail, Priority.Medium);
-                return OperationResult.Ok(okMessage);
+                return OperationResult.Ok(okKey);
             }
             catch (Exception ex)
             {
                 bitacoraBLL.RegistrarError(NameEvent.ErrorSistema, $"{detail}: {ex.Message}", Priority.High);
-                return OperationResult.Fail("No se pudo completar la operación. Intente nuevamente.");
+                return OperationResult.Fail("msg.generic.error");
             }
         }
     }

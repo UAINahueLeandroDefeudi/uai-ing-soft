@@ -19,6 +19,10 @@ namespace BE.Enum
         AsignarPermisoRol = 11,
         QuitarPermisoRol = 12,
         AsignarRolUsuario = 13,
-        QuitarRolUsuario = 14
+        QuitarRolUsuario = 14,
+        CambiarIdioma = 15,
+        CrearIdioma = 16,
+        ModificarIdioma = 17,
+        ActualizarTraduccion = 18
     }
 }

@@ -15,6 +15,9 @@ namespace BE.Entity
         public bool IsActive { get; set; }
         public DateTime? LastLoginAt { get; set; }
 
+        /// <summary>Idioma elegido por el usuario (T05); null usa el idioma por defecto.</summary>
+        public int? IdIdioma { get; set; }
+
         /// <summary>Roles asignados (T04). Se cargan al iniciar sesión.</summary>
         public List<Role> Roles { get; set; } = new();
 

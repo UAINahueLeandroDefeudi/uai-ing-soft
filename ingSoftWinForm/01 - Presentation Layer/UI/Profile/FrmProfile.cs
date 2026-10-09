@@ -1,5 +1,6 @@
 using BE.Entity;
 using BLL;
+using UI.Idiomas;
 using UI.Roles;
 
 namespace UI.Profile
@@ -8,7 +9,7 @@ namespace UI.Profile
     /// Muestra en sólo lectura los datos del usuario de la sesión activa y, salvo que sea
     /// sólo "invitado", sus roles con los permisos que otorga cada uno (T04).
     /// </summary>
-    public partial class FrmProfile : Form
+    public partial class FrmProfile : FrmTraducible
     {
         private readonly SessionBLL sessionBLL;
 
@@ -24,7 +25,7 @@ namespace UI.Profile
             if (user == null)
             {
                 // Sin sesión no hay perfil que mostrar; los labels quedan en "-".
-                MessageBox.Show(this, "No hay una sesión iniciada.", "Mi perfil",
+                MessageBox.Show(this, T("FrmProfile.sinSesion"), T("FrmProfile.Title"),
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
@@ -59,12 +60,19 @@ namespace UI.Profile
 
         private static string DescribirEstado(User user)
         {
-            if (user.IsBlocked) return "Bloqueado";
-            return user.IsActive ? "Activo" : "Dado de baja";
+            if (user.IsBlocked) return T("FrmProfile.estadoBloqueado");
+            return user.IsActive ? T("FrmProfile.estadoActivo") : T("FrmProfile.estadoBaja");
         }
 
         private static string FormatearFecha(DateTime? fecha)
             => fecha.HasValue ? fecha.Value.ToString("dd/MM/yyyy HH:mm") : "-";
+
+        /// <summary>El estado es un texto traducible: se vuelve a describir cuando cambia el idioma.</summary>
+        protected override void OnIdiomaAplicado()
+        {
+            var user = sessionBLL?.CurrentUser;
+            if (user != null) lblEstado.Text = DescribirEstado(user);
+        }
 
         private void BtnCerrar_Click(object sender, EventArgs e) => Close();
     }

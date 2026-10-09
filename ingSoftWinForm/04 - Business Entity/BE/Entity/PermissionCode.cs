@@ -12,6 +12,7 @@ namespace BE.Entity
         public const string VerBitacora = "VER_BITACORA";
         public const string GestionarRoles = "GESTIONAR_ROLES";
         public const string AsignarRolesUsuario = "ASIGNAR_ROLES_USUARIO";
+        public const string GestionarIdiomas = "GESTIONAR_IDIOMAS";
     }
 
     /// <summary>Nombres de los roles sembrados que el sistema referencia.</summary>

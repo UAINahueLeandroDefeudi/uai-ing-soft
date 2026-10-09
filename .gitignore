@@ -62,3 +62,4 @@ packages/
 obj
 node_modules/
 parcial_1/patron-observer/docs/*
+archify/

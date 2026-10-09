@@ -137,6 +137,7 @@ dotnet test "ingSoftWinForm/06 - Tests/Tests/Tests.csproj"
 | `02_seed_User.sql` | Solo lista usuarios y documenta el alta manual | No |
 | `03_create_table_Bitacora.sql` | Crea `[Bitacora]` si falta | No |
 | `04_init_create_roles_permission.sql` | Crea las tablas de roles/permisos si faltan y siembra el catálogo | No (idempotente) |
+| `05_create_idiomas.sql` | Crea `Idioma`, `Etiqueta`, `Traduccion` y `[User].IdIdioma` si faltan; siembra es/en (en incompleto) y el permiso `GESTIONAR_IDIOMAS`. Requiere `-f 65001` (UTF-8) | No (idempotente) |
 
 ---
 
@@ -889,3 +890,29 @@ validaciones, login que carga los roles). Los que abren sesión comparten la col
 ```bash
 dotnet test "ingSoftWinForm/06 - Tests/Tests/Tests.csproj"
 ```
+
+## 11. Múltiples idiomas (T05)
+
+Los textos de la interfaz viven en la base (`Idioma`, `Etiqueta`, `Traduccion`; script `sql/05_create_idiomas.sql`),
+no en `.resx`. El cambio de idioma es dinámico y se resuelve con el patrón **Observer**:
+
+| Rol | Clase | Capa |
+|---|---|---|
+| Interfaces | `IPublisherIdioma`, `ISuscriberIdioma` | BE (`BE.Observer`) |
+| Publisher | `IdiomaBLL` (instancia compartida `IdiomaBLL.Instance`) | BLL |
+| Suscriber | `FrmTraducible` (base de todos los formularios) | UI |
+| Administración | `FrmIdiomas`, permiso `GESTIONAR_IDIOMAS` | UI / BLL |
+
+- **Convención de claves:** cada control se traduce por `<Formulario>.<Name del control>`; el título por
+  `<Formulario>.Title`. Un control sin etiqueta conserva su texto de diseño. Los textos que arma el código usan
+  `T("clave", args)`; los mensajes de la BLL viajan como `OperationResult.MessageKey` + `MessageArgs`.
+- **Idioma por defecto (español):** si falta la traducción de una etiqueta en el idioma activo se muestra el texto
+  del default y `Leyenda.Traducido` vale `false`; la UI lo indica con un tooltip.
+- **Idioma del usuario:** `[User].IdIdioma`. Se aplica al iniciar sesión; antes del login se elige en el combo
+  de `FrmLogin`.
+- **Idiomas nuevos:** *Idioma ▸ Gestión de idiomas* (sólo `administrador`): crear idioma, editar la columna
+  *Traducción* y filtrar *Solo sin traducir*. El inglés se siembra incompleto a propósito.
+- **Fuera de alcance:** no se traducen los datos (nombres de roles/permisos, valores de enums de la bitácora).
+
+Documentación: `docs/ERS - Especificación de Requerimientos Software/` → `CU-gestion-idiomas.md`,
+`DC-idiomas-observer.md`, `DER-idiomas.md`, `DS-idiomas-observer.md`. Tests: `IdiomaBLLTests`.

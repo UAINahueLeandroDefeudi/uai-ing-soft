@@ -1,3 +1,6 @@
 
 # Visual Studio per-user files
 *.user
+
+# Backups de SQL Server
+sql_backup/*.bkp

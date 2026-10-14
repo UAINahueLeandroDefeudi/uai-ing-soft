@@ -216,7 +216,7 @@ namespace Tests
         }
 
         [Fact]
-        public void CambiarIdioma_LoggedIn_PersistsInUserAndAudits()
+        public void CambiarIdioma_LoggedIn_PersistsInUserWithoutAudit()
         {
             var user = Admin();
             SessionManager.Login(user);
@@ -225,7 +225,7 @@ namespace Tests
 
             Assert.Equal(En, dal.IdiomaPorUsuario[user.Id]);
             Assert.Equal(En, user.IdIdioma);
-            Assert.Contains(bitacoraDAL.Registros, b => b.NameEvent == NameEvent.CambiarIdioma);
+            Assert.DoesNotContain(bitacoraDAL.Registros, b => b.NameEvent == NameEvent.CambiarIdioma);
         }
 
         [Fact]

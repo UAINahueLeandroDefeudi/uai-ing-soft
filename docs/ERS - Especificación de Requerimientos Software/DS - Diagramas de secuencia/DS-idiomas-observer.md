@@ -49,7 +49,6 @@ sequenceDiagram
     opt hay sesión
         B->>S: usuario de la sesión
         B->>D: SetUserIdioma(userId, idEn)
-        B->>B: bitácora CambiarIdioma
     end
     B->>D: GetTextos(es) y GetTextos(en)
     D-->>B: diccionarios clave -> texto

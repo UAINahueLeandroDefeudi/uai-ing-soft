@@ -29,7 +29,7 @@ flowchart LR
 **Flujo principal**
 1. El usuario abre el menú *Idioma* (o, en el login, el combo *Idioma*) y elige uno.
 2. El sistema carga los textos del idioma elegido y del idioma por defecto.
-3. Si hay sesión, guarda la elección en el usuario (`[User].IdIdioma`) y la registra en bitácora (`CambiarIdioma`).
+3. Si hay sesión, guarda la elección en el usuario (`[User].IdIdioma`). El cambio de idioma no se registra en bitácora.
 4. El sistema notifica a todos los formularios abiertos y cada uno vuelve a mostrar sus textos.
 
 **Flujos alternativos**

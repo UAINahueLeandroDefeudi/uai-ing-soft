@@ -122,9 +122,6 @@ namespace BLL
                     var user = SessionManager.GetInstance.User;
                     idiomaDAL.SetUserIdioma(user.Id, idioma.Id);
                     user.IdIdioma = idioma.Id;
-
-                    bitacoraBLL.RegistrarEvento(NameEvent.CambiarIdioma,
-                        $"Cambio de idioma a '{idioma.Codigo}'", Priority.Low);
                 }
 
                 Activar(idioma);

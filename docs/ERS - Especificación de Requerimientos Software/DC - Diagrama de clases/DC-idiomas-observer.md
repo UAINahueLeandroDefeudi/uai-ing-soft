@@ -165,5 +165,5 @@ encabezados de grilla, nodos de árbol) se refresca en el gancho `OnIdiomaAplica
 cerrado nunca recibe notificaciones.
 
 **Administración.** Las operaciones de `IdiomaBLL` que escriben exigen `GESTIONAR_IDIOMAS` y quedan en bitácora
-(`CrearIdioma`, `ModificarIdioma`, `ActualizarTraduccion`, `CambiarIdioma`). Editar una traducción del idioma en uso
+(`CrearIdioma`, `ModificarIdioma`, `ActualizarTraduccion`). Cambiar de idioma no se registra. Editar una traducción del idioma en uso
 (o del default, que es el respaldo) recarga los diccionarios y notifica.

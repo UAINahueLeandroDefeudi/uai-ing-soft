@@ -14,43 +14,43 @@ namespace UI.Login
         {
             InitializeComponent();
             sessionBLL = new SessionBLL();
-            cboIdioma.SelectedIndexChanged += CboIdioma_SelectedIndexChanged;
+            //cboIdioma.SelectedIndexChanged += CboIdioma_SelectedIndexChanged;
         }
 
         protected override void OnLoad(EventArgs e)
         {
-            CargarIdiomas();
+            //CargarIdiomas();
             base.OnLoad(e);
         }
 
         /// <summary>Antes del login se elige el idioma de la pantalla; después manda el guardado en el usuario.</summary>
-        private void CargarIdiomas()
-        {
-            cargandoIdiomas = true;
-            try
-            {
-                var activos = Idiomas.GetIdiomasActivos();
-                cboIdioma.DataSource = activos;
-                cboIdioma.SelectedItem = activos.FirstOrDefault(i => i.Id == Idiomas.IdiomaActivo?.Id);
-            }
-            catch (Exception ex)
-            {
-                // Sin base no hay idiomas para ofrecer; el login mostrará su error de conexión.
-                cboIdioma.Enabled = false;
-                System.Diagnostics.Debug.WriteLine(ex);
-            }
-            finally
-            {
-                cargandoIdiomas = false;
-            }
-        }
+        //private void CargarIdiomas()
+        //{
+        //    cargandoIdiomas = true;
+        //    try
+        //    {
+        //        var activos = Idiomas.GetIdiomasActivos();
+        //        cboIdioma.DataSource = activos;
+        //        cboIdioma.SelectedItem = activos.FirstOrDefault(i => i.Id == Idiomas.IdiomaActivo?.Id);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        // Sin base no hay idiomas para ofrecer; el login mostrará su error de conexión.
+        //        cboIdioma.Enabled = false;
+        //        System.Diagnostics.Debug.WriteLine(ex);
+        //    }
+        //    finally
+        //    {
+        //        cargandoIdiomas = false;
+        //    }
+        //}
 
-        private void CboIdioma_SelectedIndexChanged(object? sender, EventArgs e)
-        {
-            if (cargandoIdiomas || cboIdioma.SelectedItem is not Idioma idioma) return;
+        //private void CboIdioma_SelectedIndexChanged(object? sender, EventArgs e)
+        //{
+        //    if (cargandoIdiomas || cboIdioma.SelectedItem is not Idioma idioma) return;
 
-            Idiomas.CambiarIdioma(idioma.Codigo);
-        }
+        //    Idiomas.CambiarIdioma(idioma.Codigo);
+        //}
 
         private void BtnAceptar_Click(object sender, EventArgs e)
         {
@@ -126,6 +126,11 @@ namespace UI.Login
             lblError.Text = mensaje;
             txtPassword.Clear();
             txtPassword.Focus();
+        }
+
+        private void FrmLogin_Load(object sender, EventArgs e)
+        {
+
         }
     }
 }

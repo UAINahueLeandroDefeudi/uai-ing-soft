@@ -1,3 +1,4 @@
+using BE;
 using BE.Entity;
 using BE.Enum;
 using DAL;
@@ -148,7 +149,7 @@ namespace Tests
     }
 
     /// <summary>Suscriptor de prueba: guarda cada idioma que le notifican.</summary>
-    public class SuscriberEspia : BE.Observer.ISuscriberIdioma
+    public class SuscriberEspia : ISuscriberIdioma
     {
         public List<string> Recibidos { get; } = new();
         public void Actualizar(Idioma idiomaActivo) => Recibidos.Add(idiomaActivo.Codigo);

@@ -1,3 +1,4 @@
+using BE;
 using BE.Entity;
 using BE.Enum;
 using BLL;
@@ -188,7 +189,7 @@ namespace Tests
             Assert.Single(otro.Recibidos);
         }
 
-        private class AutoDesuscripcion(IdiomaBLL publisher) : BE.Observer.ISuscriberIdioma
+        private class AutoDesuscripcion(IdiomaBLL publisher) : ISuscriberIdioma
         {
             public void Actualizar(Idioma idiomaActivo) => publisher.unsuscribe(this);
         }

@@ -1,5 +1,5 @@
+using BE;
 using BE.Entity;
-using BE.Observer;
 using BLL;
 
 namespace UI.Idiomas

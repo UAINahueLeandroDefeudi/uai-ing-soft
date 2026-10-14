@@ -1,6 +1,6 @@
 using BE.Entity;
 
-namespace BE.Observer
+namespace BE
 {
     /// <summary>
     /// Observer (T05): quien quiere enterarse del cambio de idioma. Recibe el idioma

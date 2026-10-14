@@ -50,10 +50,10 @@ namespace BLL
             {
                 // No hay User que estampar: el username tipeado va en el detalle.
                 // La contraseña no se registra nunca.
-                bitacoraBLL.RegistrarError(NameEvent.Login,
-                    $"Intento de inicio de sesión con un usuario inexistente: '{username}'",
-                    Priority.Medium);
-                RegistrarHistorial(null, username, "LoginFailed", false, 0, "usuario inexistente");
+                //bitacoraBLL.RegistrarError(NameEvent.Login,
+                //    $"Intento de inicio de sesión con un usuario inexistente: '{username}'",
+                //    Priority.Medium);
+                //RegistrarHistorial(null, username, "LoginFailed", false, 0, "usuario inexistente");
 
                 return LoginResult.Fail(LoginStatus.InvalidCredentials);
             }

@@ -1,4 +1,4 @@
-namespace BE.Observer
+namespace BE
 {
     /// <summary>Subject del Observer de idiomas (T05). Misma forma que IPublisherMateria del ejemplo.</summary>
     public interface IPublisherIdioma

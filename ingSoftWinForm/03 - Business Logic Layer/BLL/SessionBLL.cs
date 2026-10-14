@@ -1,4 +1,4 @@
-﻿using BE.Entity;
+using BE.Entity;
 using BE.Enum;
 using DAL;
 using Services;
@@ -81,6 +81,25 @@ namespace BLL
             // T04: los roles (con su Composite de permisos) se cargan ANTES de abrir la sesión,
             // así la bitácora y el menú ya los ven. HasPermission los recorre recursivamente.
             user.Permissions = roleDAL.GetByUser(user.Id);
+
+            // T07: con la integridad comprometida solo el administrador entra (para ver el
+            // diagnóstico y restaurar). El resto recibe un error genérico y no se revela el motivo.
+            if (IntegridadManager.HayProblemas)
+            {
+                if (!BackupBLL.EsAdministrador(user))
+                {
+                    bitacoraBLL.RegistrarError(NameEvent.ErrorIntegridad,
+                        "Inicio de sesión rechazado: la verificación de integridad de la base falló",
+                        Priority.Critical, user);
+                    RegistrarHistorial(user, "LoginFailed", false, "error de sistema");
+
+                    return LoginResult.Fail(LoginStatus.SystemError);
+                }
+
+                bitacoraBLL.RegistrarError(NameEvent.ErrorIntegridad,
+                    $"Administrador ingresa con la integridad de la base comprometida ({IntegridadManager.Resultado!.Errores.Count} errores)",
+                    Priority.Critical, user);
+            }
 
             try
             {

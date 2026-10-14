@@ -20,5 +20,8 @@ namespace BE.Entity
     {
         /// <summary>Rol que recibe todo usuario que se registra por su cuenta.</summary>
         public const string Invitado = "invitado";
+
+        /// <summary>T07: rol que recibe el diagnóstico de integridad y puede restaurar un backup.</summary>
+        public const string Administrador = "administrador";
     }
 }

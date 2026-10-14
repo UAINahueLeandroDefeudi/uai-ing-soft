@@ -79,3 +79,28 @@ erDiagram
 | Todo intento queda registrado | Insert en `INTENTO_LOGIN` (exitoso o no) |
 
 > `USUARIO_PERMISO` se detalla en [DER-permisos-composite.md](DER-permisos-composite.md).
+
+## T07 - Dígitos verificadores (implementado)
+
+Tablas protegidas: `UserHistory` y `User_Permission` (columna `DVH CHAR(64)`), más la tabla de control:
+
+| DigitoVerificador | Tipo | |
+|---|---|---|
+| Tabla | NVARCHAR(100) | PK |
+| DVV | CHAR(64) | SHA-256 de la tabla |
+| FechaCalculo | DATETIME2 | no entra al hash |
+
+Algoritmo (`Services.DigitoVerificador`, UTF-16LE):
+
+- `DVH = SHA256(Tabla | i:longitud:valor | i:N ...)`, con `i` = posición del atributo.
+- `DVV = SHA256(Tabla | N | clave=DVH ...)`, ordenado por clave.
+
+### Cómo proteger una tabla nueva
+
+1. `ALTER TABLE [Tabla] ADD DVH CHAR(64) NULL` (en un script nuevo, o junto al 07).
+2. Agregar `new EntidadVerificable("Tabla", clave, atributos)` en `BE.Entity.EntidadesVerificables.Todas`.
+3. En la DAL de la tabla, hacer las escrituras con `DigitoVerificadorDAL.Escribir(...)` (ver `UserHistoryDAL.Insert`).
+4. Agregar un bloque para la tabla en `sql/08_seed_digitos_verificadores.sql` y correrlo una vez.
+5. Agregar la entidad a `IntegridadTests.Entidades()`.
+
+La verificación al arranque, la alerta para el administrador, la bitácora y la restauración de backup no cambian.

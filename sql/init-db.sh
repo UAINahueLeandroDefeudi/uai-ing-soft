@@ -114,6 +114,22 @@ run_file "05_create_idiomas.sql" >/dev/null
 echo "UserHistory: creando lo que falte ..."
 run_file "06_create_table_UserHistory.sql" >/dev/null
 
+# Digitos verificadores (T07): columnas DVH y tabla de control. Idempotente.
+echo "Digitos verificadores: creando lo que falte ..."
+run_file "07_create_digitos_verificadores.sql" >/dev/null
+
+# Etiquetas de idioma de la alerta de integridad y del backup.
+run_file "09_seed_etiquetas_integridad.sql" >/dev/null
+
+# Carga inicial de los DV: UNA sola vez, solo si todavia no hay digitos calculados.
+# (08 da por validos los datos actuales; no se corre de nuevo sobre una base ya protegida.)
+if [[ "$(scalar "SELECT COUNT(*) FROM [$DATABASE].[dbo].[DigitoVerificador]")" == "0" ]]; then
+    echo "Digitos verificadores: calculando los de los datos actuales (una sola vez) ..."
+    run_file "08_seed_digitos_verificadores.sql" >/dev/null
+else
+    echo "Digitos verificadores: ya cargados (no se recalculan)."
+fi
+
 echo
 echo "Listo. Estado de IF_DB:"
 run_sql -d "$DATABASE" -W -Q "SET NOCOUNT ON;

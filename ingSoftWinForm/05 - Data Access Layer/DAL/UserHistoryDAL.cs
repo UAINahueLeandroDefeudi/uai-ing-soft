@@ -1,11 +1,12 @@
 using System.Data;
+using BE.Entity;
 using Microsoft.Data.SqlClient;
 
 namespace DAL
 {
     public class UserHistoryDAL : IUserHistoryDAL
     {
-        private readonly DatabaseHelper dbHelper = new();
+        private readonly DigitoVerificadorDAL integridad = new();
 
         public void Insert(Guid? userId, string username, string eventType, bool success,
             int failedAttempts, string? detail = null,
@@ -17,7 +18,8 @@ namespace DAL
                      [FieldName], [OldValue], [NewValue], [Detail])
                 VALUES
                     (@UserId, @Username, @EventType, @Success, @FailedAttempts,
-                     @FieldName, @OldValue, @NewValue, @Detail);";
+                     @FieldName, @OldValue, @NewValue, @Detail);
+                SELECT CAST(SCOPE_IDENTITY() AS BIGINT);";
 
             SqlParameter[] parameters =
             [
@@ -32,7 +34,15 @@ namespace DAL
                 new SqlParameter("@Detail", SqlDbType.NVarChar, 500) { Value = (object?)Truncate(detail, 500) ?? DBNull.Value }
             ];
 
-            dbHelper.ExecuteNonQuery(query, CommandType.Text, parameters);
+            // T07: la fila, su DVH y el DVV de la tabla se guardan juntos.
+            integridad.Escribir((connection, transaction) =>
+            {
+                using var command = new SqlCommand(query, connection, transaction);
+                command.Parameters.AddRange(parameters);
+                var id = command.ExecuteScalar();
+
+                return [(EntidadesVerificables.UserHistory, new Dictionary<string, object?> { ["Id"] = id })];
+            });
         }
 
         private static string? Truncate(string? value, int max)

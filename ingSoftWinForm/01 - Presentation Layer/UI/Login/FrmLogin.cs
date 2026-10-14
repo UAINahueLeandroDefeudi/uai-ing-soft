@@ -77,6 +77,11 @@ namespace UI.Login
                         MostrarError(T("msg.login.inactive"));
                         break;
 
+                    case LoginStatus.SystemError:
+                        // T07: tipo HTTP 500, sin detalle del problema de integridad.
+                        MostrarError(T("msg.login.systemError"));
+                        break;
+
                     case LoginStatus.SessionAlreadyOpen:
                         MostrarError(T("msg.login.sessionOpen"));
                         break;

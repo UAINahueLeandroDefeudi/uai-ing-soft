@@ -23,6 +23,9 @@ namespace BE.Enum
         CambiarIdioma = 15,
         CrearIdioma = 16,
         ModificarIdioma = 17,
-        ActualizarTraduccion = 18
+        ActualizarTraduccion = 18,
+        ErrorIntegridad = 19,
+        GenerarBackup = 20,
+        RestaurarBackup = 21
     }
 }

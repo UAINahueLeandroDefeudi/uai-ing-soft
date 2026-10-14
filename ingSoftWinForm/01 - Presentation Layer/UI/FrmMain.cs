@@ -1,6 +1,7 @@
 using BE.Entity;
 using BLL;
 using UI.Event;
+using UI.Integridad;
 using UI.Idiomas;
 using UI.Inicio;
 using UI.Login;
@@ -43,6 +44,10 @@ namespace UI
             // T04: sólo si el rol del usuario le permite ver su perfil.
             if (sessionBLL.HasPermission(PermissionCode.VerMiPerfil))
                 AbrirHijo<FrmProfile>();
+
+            // T07: el administrador que entra con la integridad comprometida ve el diagnóstico.
+            if (Services.IntegridadManager.HayProblemas && BackupBLL.EsAdministrador(sessionBLL.CurrentUser))
+                AbrirHijo<FrmAlertaIntegridad>();
         }
 
         /// <summary>

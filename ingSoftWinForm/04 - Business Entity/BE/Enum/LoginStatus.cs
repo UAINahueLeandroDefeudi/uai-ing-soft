@@ -10,6 +10,9 @@ namespace BE.Enum
         InvalidCredentials,
         UserBlocked,
         UserInactive,
-        SessionAlreadyOpen
+        SessionAlreadyOpen,
+
+        /// <summary>T07: falló la verificación de integridad y el usuario no es administrador.</summary>
+        SystemError
     }
 }

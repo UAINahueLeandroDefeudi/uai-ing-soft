@@ -13,6 +13,7 @@ namespace DAL
     {
         private readonly DatabaseHelper dbHelper;
         private readonly IPermissionDAL permissionDAL;
+        private readonly DigitoVerificadorDAL integridad = new();
 
         public RoleDAL() : this(new PermissionDAL()) { }
 
@@ -125,7 +126,7 @@ namespace DAL
                 new SqlParameter("@RoleId", roleId)
             ];
 
-            dbHelper.ExecuteNonQuery(query, CommandType.Text, parameters);
+            EscribirUserPermission(query, parameters, userId, roleId, baja: false);
         }
 
         public void RemoveFromUser(Guid userId, int roleId)
@@ -137,7 +138,24 @@ namespace DAL
                 new SqlParameter("@RoleId", roleId)
             ];
 
-            dbHelper.ExecuteNonQuery(query, CommandType.Text, parameters);
+            EscribirUserPermission(query, parameters, userId, roleId, baja: true);
+        }
+
+        /// <summary>T07: [User_Permission] es verificable; cada alta/baja actualiza DVH y DVV en la misma transacción.</summary>
+        private void EscribirUserPermission(string query, SqlParameter[] parameters, Guid userId, int roleId, bool baja)
+        {
+            integridad.Escribir((connection, transaction) =>
+            {
+                using var command = new SqlCommand(query, connection, transaction);
+                command.Parameters.AddRange(parameters);
+                command.ExecuteNonQuery();
+
+                var clave = baja
+                    ? null
+                    : new Dictionary<string, object?> { ["UserId"] = userId, ["PermissionId"] = roleId };
+
+                return [(EntidadesVerificables.UserPermission, clave)];
+            });
         }
     }
 }

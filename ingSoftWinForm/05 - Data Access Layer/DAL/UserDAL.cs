@@ -9,6 +9,7 @@ namespace DAL
     {
         private readonly DatabaseHelper dbHelper;
         private readonly UserMapper mapper;
+        private readonly DigitoVerificadorDAL integridad = new();
 
         public UserDAL()
         {
@@ -110,7 +111,28 @@ namespace DAL
                 new SqlParameter("@RoleName", roleName)
             ];
 
-            dbHelper.ExecuteTransaction([(insertUser, userParameters), (insertRole, roleParameters)]);
+            // T07: el rol asignado entra a [User_Permission], tabla verificable.
+            integridad.Escribir((connection, transaction) =>
+            {
+                foreach (var (query, parameters) in new[] { (insertUser, userParameters), (insertRole, roleParameters) })
+                {
+                    using var command = new SqlCommand(query, connection, transaction);
+                    command.Parameters.AddRange(parameters);
+                    command.ExecuteNonQuery();
+                }
+
+                using var select = new SqlCommand(
+                    "SELECT PermissionId FROM [User_Permission] WHERE UserId = @UserId", connection, transaction);
+                select.Parameters.AddWithValue("@UserId", user.Id);
+
+                var claves = new List<(EntidadVerificable, Dictionary<string, object?>?)>();
+                using var reader = select.ExecuteReader();
+                while (reader.Read())
+                    claves.Add((EntidadesVerificables.UserPermission,
+                        new Dictionary<string, object?> { ["UserId"] = user.Id, ["PermissionId"] = reader.GetInt32(0) }));
+
+                return claves;
+            });
         }
     }
 }

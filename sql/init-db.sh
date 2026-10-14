@@ -9,6 +9,7 @@
 #   [Bitacora]                      03_create_table_Bitacora.sql    (solo si falta)
 #   [Permission], [Permission_Permission], [User_Permission]       04_init_create_roles_permission.sql
 #   [Idioma], [Etiqueta], [Traduccion]  05_create_idiomas.sql        (idempotente; siembra es/en, en incompleto)
+#   [UserHistory]                   06_create_table_UserHistory.sql (idempotente, no dropea)
 #                                   (idempotente: crea lo que falta y resiembra sin duplicar)
 #
 # Uso:
@@ -109,6 +110,10 @@ run_file "04_init_create_roles_permission.sql" >/dev/null
 echo "Idiomas: creando lo que falte y sembrando es/en ..."
 run_file "05_create_idiomas.sql" >/dev/null
 
+# Historial de cambios de usuario (T06): idempotente, nunca se dropea.
+echo "UserHistory: creando lo que falte ..."
+run_file "06_create_table_UserHistory.sql" >/dev/null
+
 echo
 echo "Listo. Estado de IF_DB:"
 run_sql -d "$DATABASE" -W -Q "SET NOCOUNT ON;
@@ -119,7 +124,8 @@ UNION ALL SELECT 'Permission_Permission', COUNT(*) FROM [dbo].[Permission_Permis
 UNION ALL SELECT 'User_Permission',       COUNT(*) FROM [dbo].[User_Permission]
 UNION ALL SELECT 'Idioma',     COUNT(*) FROM [dbo].[Idioma]
 UNION ALL SELECT 'Etiqueta',   COUNT(*) FROM [dbo].[Etiqueta]
-UNION ALL SELECT 'Traduccion', COUNT(*) FROM [dbo].[Traduccion];"
+UNION ALL SELECT 'Traduccion', COUNT(*) FROM [dbo].[Traduccion]
+UNION ALL SELECT 'UserHistory', COUNT(*) FROM [dbo].[UserHistory];"
 
 echo
 echo "Siguiente paso: crear un usuario y darle un rol, por ejemplo:"

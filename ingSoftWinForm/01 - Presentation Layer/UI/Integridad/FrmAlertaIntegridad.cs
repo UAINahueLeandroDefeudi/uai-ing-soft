@@ -20,10 +20,10 @@ namespace UI.Integridad
         private readonly ListView lvErrores = new() { Name = "lvErrores", Dock = DockStyle.Top, Height = 150, View = View.Details, FullRowSelect = true, GridLines = true };
         private readonly Label lblDetalle = new() { Name = "lblDetalle", Dock = DockStyle.Top, Height = 36, Padding = new Padding(8, 8, 8, 0) };
         private readonly ListView lvDiferencias = new() { Name = "lvDiferencias", Dock = DockStyle.Fill, View = View.Details, FullRowSelect = true, GridLines = true };
-        private readonly Panel pnlBackup = new() { Dock = DockStyle.Bottom, Height = 44, Padding = new Padding(8) };
-        private readonly ComboBox cboBackups = new() { Name = "cboBackups", DropDownStyle = ComboBoxStyle.DropDownList, Width = 420, Left = 8, Top = 10 };
-        private readonly Button btnComparar = new() { Name = "btnComparar", Left = 438, Top = 8, Width = 150 };
-        private readonly Button btnRestaurar = new() { Name = "btnRestaurar", Left = 594, Top = 8, Width = 150 };
+        private readonly Panel pnlBackup = new() { Dock = DockStyle.Bottom, Height = 56, Padding = new Padding(8) };
+        private readonly ComboBox cboBackups = new() { Name = "cboBackups", DropDownStyle = ComboBoxStyle.DropDownList, Width = 420, Left = 8, Top = 14, FormattingEnabled = true };
+        private readonly Button btnComparar = new() { Name = "btnComparar", Left = 438, Top = 10, Width = 170, Height = 34, UseVisualStyleBackColor = true };
+        private readonly Button btnRestaurar = new() { Name = "btnRestaurar", Left = 614, Top = 10, Width = 170, Height = 34, UseVisualStyleBackColor = true };
 
         public FrmAlertaIntegridad()
         {
@@ -35,6 +35,8 @@ namespace UI.Integridad
             lblAviso.Text = "La verificación de integridad detectó diferencias en la base de datos.";
             btnComparar.Text = "Comparar con backup";
             btnRestaurar.Text = "Restaurar backup";
+            // Se muestra solo el nombre del archivo (la ruta completa no entra y oculta cuál es el backup).
+            cboBackups.Format += (_, e) => e.Value = e.ListItem is string ruta ? Path.GetFileName(ruta) : e.Value;
             btnComparar.Click += BtnComparar_Click;
             btnRestaurar.Click += BtnRestaurar_Click;
 

@@ -93,6 +93,23 @@ El rol se valida **antes** de insertar: si no existe (o si faltan las tablas de 
 decir, no se corrió el paso 2) el script corta con un mensaje claro y no deja un usuario
 creado a medias. Roles disponibles: `invitado`, `client`, `moderador`, `administrador`.
 
+### Usuarios de prueba
+
+Para probar los distintos perfiles se usan tres usuarios, uno por rol. Si no existen en la
+base, hay que crearlos con `create-user.sh`:
+
+| Usuario | Contraseña | Rol |
+|---|---|---|
+| `invi` | `Invi1234` | `invitado` |
+| `mode` | `Mode1234` | `moderador` |
+| `admin` | `Admin123` | `administrador` |
+
+```bash
+./sql/create-user.sh -u invi  -p Invi1234 -f Invi  -l Prueba -r invitado
+./sql/create-user.sh -u mode  -p Mode1234 -f Mode  -l Prueba -r moderador
+./sql/create-user.sh -u admin -p Admin123 -f Admin -l "Del Sistema" -e admin@if.local
+```
+
 ### 4. Compilar y ejecutar
 
 ```bash

@@ -78,7 +78,6 @@ namespace UI.Login
                         break;
 
                     case LoginStatus.SystemError:
-                        // T07: tipo HTTP 500, sin detalle del problema de integridad.
                         // Popup modal (no la etiqueta) para distinguirlo de una contraseña incorrecta.
                         txtPassword.Clear();
                         MessageBox.Show(this, T("msg.login.systemError"), Text,

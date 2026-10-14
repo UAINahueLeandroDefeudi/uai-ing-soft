@@ -7,7 +7,7 @@
 #
 #   [User]                          01_create_table_User.sql        (solo si falta)
 #   [Bitacora]                      03_create_table_Bitacora.sql    (solo si falta)
-#   [Permission], [Role], ...       04_init_create_roles_permission.sql
+#   [Permission], [Permission_Permission], [User_Permission]       04_init_create_roles_permission.sql
 #   [Idioma], [Etiqueta], [Traduccion]  05_create_idiomas.sql        (idempotente; siembra es/en, en incompleto)
 #                                   (idempotente: crea lo que falta y resiembra sin duplicar)
 #
@@ -115,8 +115,8 @@ run_sql -d "$DATABASE" -W -Q "SET NOCOUNT ON;
 SELECT 'User'       AS [Tabla], COUNT(*) AS [Filas] FROM [dbo].[User]
 UNION ALL SELECT 'Bitacora',   COUNT(*) FROM [dbo].[Bitacora]
 UNION ALL SELECT 'Permission', COUNT(*) FROM [dbo].[Permission]
-UNION ALL SELECT 'Role',       COUNT(*) FROM [dbo].[Role]
-UNION ALL SELECT 'User_Role',  COUNT(*) FROM [dbo].[User_Role]
+UNION ALL SELECT 'Permission_Permission', COUNT(*) FROM [dbo].[Permission_Permission]
+UNION ALL SELECT 'User_Permission',       COUNT(*) FROM [dbo].[User_Permission]
 UNION ALL SELECT 'Idioma',     COUNT(*) FROM [dbo].[Idioma]
 UNION ALL SELECT 'Etiqueta',   COUNT(*) FROM [dbo].[Etiqueta]
 UNION ALL SELECT 'Traduccion', COUNT(*) FROM [dbo].[Traduccion];"

@@ -6,9 +6,10 @@ using Services;
 namespace BLL
 {
     /// <summary>
-    /// Gestión de roles (T04). ABM de roles y asignación/quita de permisos simples o
-    /// compuestos a un rol; asignación/quita de roles a un usuario. Los permisos en
-    /// sí son un catálogo fijo: no se crean, modifican ni eliminan.
+    /// Gestión de roles (T04, Modelo I: rol = permiso compuesto con IsRol). ABM de roles
+    /// y asignación/quita de hijos (permisos simples, compuestos u otros roles) a un rol;
+    /// asignación/quita de roles a un usuario. Los permisos simples (hojas) son un
+    /// catálogo fijo: no se crean, modifican ni eliminan.
     /// Cada operación valida el permiso de quien la ejecuta (defensa en profundidad:
     /// no depende de que la UI haya ocultado el botón) y queda en bitácora.
     /// T05: los resultados llevan la clave de la etiqueta del mensaje (msg.role.*), no el texto.
@@ -34,14 +35,14 @@ namespace BLL
 
         // ---- Consultas ----
 
-        public List<Role> GetRoles() => roleDAL.GetAll();
+        public List<Permission> GetRoles() => roleDAL.GetAll();
 
         /// <summary>Catálogo completo de permisos (simples y compuestos) con su árbol armado.</summary>
         public List<Permission> GetPermissionCatalog() => permissionDAL.GetAll();
 
         public List<User> GetUsers() => userDAL.GetAll();
 
-        public List<Role> GetUserRoles(User user) => roleDAL.GetByUser(user.Id);
+        public List<Permission> GetUserRoles(User user) => roleDAL.GetByUser(user.Id);
 
         // ---- ABM de roles ----
 
@@ -58,15 +59,17 @@ namespace BLL
 
             return Execute(NameEvent.CrearRol, $"Creación del rol '{name}'", () =>
             {
-                var role = new Role { Name = name };
-                roleDAL.Insert(role, SessionManager.GetInstance.User.Username);
+                // Un rol es un RolePermission (compuesto asignable a usuarios); el Code deriva del nombre.
+                var role = new RolePermission { Name = name, Code = RoleCode(name) };
+                roleDAL.Insert(role);
             }, "msg.role.created");
         }
 
-        public OperationResult DeleteRole(Role role)
+        public OperationResult DeleteRole(Permission role)
         {
             if (!Authorize(PermissionCode.GestionarRoles, "eliminar un rol")) return Denied();
 
+            if (!role.IsRol) return OperationResult.Fail("msg.role.notRole");
             if (role.Name == RoleName.Invitado)
                 return OperationResult.Fail("msg.role.invitadoSystem");
             if (roleDAL.HasUsers(role.Id))
@@ -78,10 +81,13 @@ namespace BLL
 
         // ---- Permisos de un rol ----
 
-        public OperationResult AddPermissionToRole(Role role, Permission permission)
+        public OperationResult AddPermissionToRole(Permission role, Permission permission)
         {
             if (!Authorize(PermissionCode.GestionarRoles, "agregar un permiso a un rol")) return Denied();
 
+            if (!role.IsRol) return OperationResult.Fail("msg.role.notRole");
+            if (permission.Contains(role))
+                return OperationResult.Fail("msg.role.cycle", permission.Name, role.Name);
             if (role.Grants(permission.Code))
                 return OperationResult.Fail("msg.role.alreadyGrants", role.Name, permission.Name);
 
@@ -89,31 +95,33 @@ namespace BLL
                 $"Se agregó el permiso '{permission.Code}' al rol '{role.Name}'", () =>
                 {
                     roleDAL.AddPermission(role.Id, permission.Id);
-                    role.AddPermission(permission);
+                    role.Add(permission);
                 }, "msg.role.permAdded");
         }
 
-        public OperationResult RemovePermissionFromRole(Role role, Permission permission)
+        public OperationResult RemovePermissionFromRole(Permission role, Permission permission)
         {
             if (!Authorize(PermissionCode.GestionarRoles, "quitar un permiso de un rol")) return Denied();
 
-            if (!role.Permissions.Any(p => p.Code == permission.Code))
+            if (!role.IsRol) return OperationResult.Fail("msg.role.notRole");
+            if (!role.GetChildren().Any(p => p.Code == permission.Code))
                 return OperationResult.Fail("msg.role.permNotDirect", permission.Name, role.Name);
 
             return Execute(NameEvent.QuitarPermisoRol,
                 $"Se quitó el permiso '{permission.Code}' del rol '{role.Name}'", () =>
                 {
                     roleDAL.RemovePermission(role.Id, permission.Id);
-                    role.RemovePermission(permission);
+                    role.Remove(permission);
                 }, "msg.role.permRemoved");
         }
 
         // ---- Roles de un usuario ----
 
-        public OperationResult AssignRoleToUser(User user, Role role)
+        public OperationResult AssignRoleToUser(User user, Permission role)
         {
             if (!Authorize(PermissionCode.AsignarRolesUsuario, "asignar un rol a un usuario")) return Denied();
 
+            if (!role.IsRol) return OperationResult.Fail("msg.role.notRole");
             if (roleDAL.GetByUser(user.Id).Any(r => r.Id == role.Id))
                 return OperationResult.Fail("msg.role.userHas", user.Username, role.Name);
 
@@ -122,7 +130,7 @@ namespace BLL
                 () => roleDAL.AssignToUser(user.Id, role.Id), "msg.role.assigned");
         }
 
-        public OperationResult RemoveRoleFromUser(User user, Role role)
+        public OperationResult RemoveRoleFromUser(User user, Permission role)
         {
             if (!Authorize(PermissionCode.AsignarRolesUsuario, "quitar un rol a un usuario")) return Denied();
 
@@ -140,6 +148,10 @@ namespace BLL
         }
 
         // ---- Soporte ----
+
+        /// <summary>Código estable del rol a partir de su nombre (ej. 'auditor' -> ROL_AUDITOR).</summary>
+        private static string RoleCode(string name)
+            => "ROL_" + name.ToUpperInvariant().Replace(' ', '_');
 
         /// <summary>
         /// Verifica que la sesión activa tenga el permiso. Si no, queda auditado como

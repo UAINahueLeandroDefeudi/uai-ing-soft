@@ -54,7 +54,7 @@ sqlcmd -S localhost\SQLEXPRESS -E -C -Q "SELECT @@SERVERNAME"
 
 `sql/init-db.sh` crea `IF_DB` si no existe y después las tablas que falten: `[User]`,
 `[Bitacora]` y las de roles y permisos (`[Permission]`, `[Permission_Permission]`,
-`[Role]`, `[Role_Permission]`, `[User_Role]`, con el catálogo sembrado). Es **seguro de
+`[User_Permission]`, con el catálogo y los roles sembrados). Es **seguro de
 re-ejecutar y no borra datos**: si `[User]` ya existe no corre `01_create_table_User.sql`
 (que hace `DROP TABLE`). Al final muestra cuántas filas tiene cada tabla.
 
@@ -147,7 +147,7 @@ dotnet test "ingSoftWinForm/06 - Tests/Tests/Tests.csproj"
 01 - Presentation Layer/UI      →  GUI.csproj        (net8.0-windows)  FrmLogin, FrmRegister, FrmMain, FrmLogout, FrmProfile, FrmEvent, FrmInicio, FrmRoleManagement
 02 - Service Layer/Services     →  Services.csproj   (net8.0)          HashManager, SessionManager, BitacoraManager
 03 - Business Logic Layer/BLL   →  BLL.csproj        (net8.0)          SessionBLL, UserBLL, RoleBLL, BitacoraBLL
-04 - Business Entity/BE         →  BE.csproj         (net8.0)          User, Role, Permission (Composite), Bitacora, LoginResult, OperationResult, enums, mappers, bases
+04 - Business Entity/BE         →  BE.csproj         (net8.0)          User, Permission (Composite; el rol es un compuesto con IsRol), Bitacora, LoginResult, OperationResult, enums, mappers, bases
 05 - Data Access Layer/DAL      →  DAL.csproj        (net8.0)          DatabaseHelper, IUserDAL/UserDAL, IRoleDAL/RoleDAL, IPermissionDAL/PermissionDAL, IBitacoraDAL/BitacoraDAL
 06 - Tests/Tests                →  Tests.csproj      (net8.0)          xUnit: Composite, permisos, RoleBLL, UserBLL (con DAL en memoria)
 ```
@@ -233,7 +233,7 @@ stored procedures):
 | `IncrementFailedAttempts(username)` | `UPDATE [User] SET FailedAttempts = FailedAttempts + 1 ...` |
 | `ResetFailedAttempts(id)` | `UPDATE [User] SET FailedAttempts = 0, LastLoginAt = SYSDATETIME() ...` |
 | `EmailExists(email)` | `SELECT COUNT(1) FROM [User] WHERE Email = @Email` |
-| `Insert(user, roleName)` | `INSERT [User]` + `INSERT [User_Role]` en **una transacción** (si el rol no existe, rollback) |
+| `Insert(user, roleName)` | `INSERT [User]` + `INSERT [User_Permission]` en **una transacción** (si el rol no existe, rollback) |
 
 Notar que **la contraseña nunca viaja al SQL**: se busca solo por `Username` y la
 verificación del hash la hace la BLL en memoria con `HashManager`.
@@ -245,11 +245,9 @@ Script: `../sql/04_init_create_roles_permission.sql`. Detalle y diagramas en la 
 
 | Tabla | Para qué |
 |---|---|
-| `[Permission]` | Catálogo: permisos simples y compuestos (`IsCompound`), con `Code` único |
-| `[Permission_Permission]` | Árbol del Composite: `ParentId` (compuesto) → `ChildId` (simple u otro compuesto) |
-| `[Role]` | Roles (se gestionan desde la app) |
-| `[Role_Permission]` | Permisos que otorga cada rol (cae en cascada al borrar el rol) |
-| `[User_Role]` | Roles de cada usuario (N:M; FK a `[User].Id`) |
+| `[Permission]` | Permisos simples (`IsFamily = 0`), compuestos (`IsFamily = 1`) y roles (`IsFamily = 1`, `IsRol = 1`), con `Code` único |
+| `[Permission_Permission]` | Árbol del Composite: `ParentId` (familia o rol) → `ChildId` (simple, compuesto u otro rol) |
+| `[User_Permission]` | Roles de cada usuario (N:M; FK a `[User].Id` y `[Permission].Id`) |
 
 ### Puesta en marcha
 
@@ -791,29 +789,28 @@ funciones **recursivas**. Documentación completa (DC, DER, DS, CU) en
 `DC-permisos-composite.md`, `DER-permisos-composite.md`, `DS-permisos-composite.md`,
 `CU-gestion-perfiles.md` y `DC-modelo-I-vs-II-permisos.md`.
 
-### Modelo (Modelo II: el Rol es una entidad aparte)
+### Modelo (Modelo I: el rol es un permiso compuesto con `IsRol`)
 
 | Rol en el patrón | Clase (`BE.Entity`) | Qué es |
 |---|---|---|
-| *Component* | `Permission` (abstracta) | Un permiso (`Id`, `Code`, `Name`, `GetChildren`, `Add`, `Remove`, `Grants`, `Flatten`) |
+| *Component* | `Permission` (abstracta) | Un permiso (`Id`, `Code`, `Name`, `IsRol`, `GetChildren`, `Add`, `Remove`, `LoadChildren`, `Grants`, `Flatten`) |
 | *Leaf* | `SimplePermission` | Permiso atómico, ej. `GESTIONAR_ROLES`. `Add/Remove` lanzan `InvalidOperationException` |
-| *Composite* | `CompoundPermission` | Agrupa permisos; rechaza duplicados y **ciclos** |
-| — | `Role` | Agrega permisos; **no** forma parte del Composite |
-| — | `User.Roles` | Un usuario puede tener varios roles |
+| *Composite* | `CompoundPermission` | Agrupa permisos; rechaza duplicados y **ciclos**. Con `IsRol = true` es un rol |
+| — | `User.Permissions` | Roles asignados al usuario (`User.Roles` es la vista filtrada por `IsRol`) |
 
 ```mermaid
 classDiagram
     Permission <|-- SimplePermission
     Permission <|-- CompoundPermission
     CompoundPermission o--> "0..*" Permission : children
-    Role o--> "0..*" Permission : Permissions
-    User o--> "0..*" Role : Roles
+    User o--> "0..*" Permission : Permissions (roles)
 ```
 
-El **catálogo de permisos es fijo**: se siembra por SQL y la app no crea, modifica ni
-elimina permisos (ni simples ni compuestos). Lo que se gestiona es el **ABM de roles** y
-agregar o quitar permisos a un rol. (El documento `DC-modelo-I-vs-II-permisos.md` explica
-cómo migrar al Modelo I, donde el rol es un permiso compuesto más.)
+Los **permisos simples (hojas) no tienen ABM**: son un catálogo fijo sembrado por SQL y
+la app no los crea, modifica ni elimina. Lo que se gestiona es el **ABM de roles**
+(`IsRol = 1`) y agregar o quitar hijos a un rol (hojas, compuestos u otros roles: rol
+anidado). `DC-modelo-I-vs-II-permisos.md` compara con el Modelo II (rol separado), que
+quedó descartado por requerir 5 tablas en lugar de 3.
 
 ### Roles y permisos sembrados
 
@@ -838,8 +835,8 @@ public bool Grants(string code)
         if (child.Grants(code)) return true;
     return false;
 }
-// Role.Grants  => Permissions.Any(p => p.Grants(code))
-// User.HasPermission => Roles.Any(r => r.Grants(code))
+// Un rol es un compuesto: role.Grants(code) recorre sus hijos.
+// User.HasPermission => Permissions.Any(p => p.Grants(code))
 // SessionManager.HasPermission(code) => usuario en sesión
 ```
 

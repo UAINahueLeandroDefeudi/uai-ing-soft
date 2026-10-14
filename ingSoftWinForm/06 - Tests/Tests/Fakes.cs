@@ -46,17 +46,17 @@ namespace Tests
     {
         private int nextId = 100;
 
-        public List<Role> Roles { get; } = new();
+        public List<Permission> Roles { get; } = new();
         public Dictionary<Guid, List<int>> UserRoles { get; } = new();
 
-        public List<Role> GetAll() => Roles;
+        public List<Permission> GetAll() => Roles;
 
-        public List<Role> GetByUser(Guid userId)
+        public List<Permission> GetByUser(Guid userId)
             => UserRoles.TryGetValue(userId, out var ids) ? Roles.Where(r => ids.Contains(r.Id)).ToList() : new();
 
-        public Role? GetByName(string name) => Roles.FirstOrDefault(r => r.Name == name);
+        public Permission? GetByName(string name) => Roles.FirstOrDefault(r => r.Name == name);
 
-        public int Insert(Role role, string createdBy)
+        public int Insert(Permission role)
         {
             role.Id = nextId++;
             Roles.Add(role);
@@ -167,14 +167,15 @@ namespace Tests
             return compound;
         }
 
-        public static Role RoleWith(string name, int id, params Permission[] permissions)
+        /// <summary>Un rol es un RolePermission, compuesto asignable a usuarios (Modelo I).</summary>
+        public static RolePermission RoleWith(string name, int id, params Permission[] permissions)
         {
-            var role = new Role { Id = id, Name = name };
-            foreach (var permission in permissions) role.AddPermission(permission);
+            var role = new RolePermission { Id = id, Name = name, Code = "ROL_" + name.ToUpperInvariant() };
+            foreach (var permission in permissions) role.Add(permission);
             return role;
         }
 
-        public static User UserWith(string username, params Role[] roles)
-            => new() { Username = username, FirstName = "N", LastName = "A", IsActive = true, Roles = roles.ToList() };
+        public static User UserWith(string username, params Permission[] roles)
+            => new() { Username = username, FirstName = "N", LastName = "A", IsActive = true, Permissions = roles.ToList() };
     }
 }

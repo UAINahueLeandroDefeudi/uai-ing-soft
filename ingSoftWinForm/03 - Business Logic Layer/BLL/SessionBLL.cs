@@ -73,7 +73,7 @@ namespace BLL
 
             // T04: los roles (con su Composite de permisos) se cargan ANTES de abrir la sesión,
             // así la bitácora y el menú ya los ven. HasPermission los recorre recursivamente.
-            user.Roles = roleDAL.GetByUser(user.Id);
+            user.Permissions = roleDAL.GetByUser(user.Id);
 
             try
             {

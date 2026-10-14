@@ -18,11 +18,14 @@ namespace BE.Entity
         /// <summary>Idioma elegido por el usuario (T05); null usa el idioma por defecto.</summary>
         public int? IdIdioma { get; set; }
 
-        /// <summary>Roles asignados (T04). Se cargan al iniciar sesión.</summary>
-        public List<Role> Roles { get; set; } = new();
+        /// <summary>Permisos asignados (T04): roles, o permisos sueltos. Se cargan al iniciar sesión.</summary>
+        public List<Permission> Permissions { get; set; } = new();
 
-        /// <summary>Alguno de sus roles otorga el permiso (búsqueda recursiva en el Composite).</summary>
-        public bool HasPermission(string code) => Roles.Any(r => r.Grants(code));
+        /// <summary>Los asignados que son roles (<see cref="RolePermission"/>).</summary>
+        public IReadOnlyList<Permission> Roles => Permissions.OfType<RolePermission>().ToList<Permission>();
+
+        /// <summary>Alguno de sus permisos otorga el código (búsqueda recursiva en el Composite).</summary>
+        public bool HasPermission(string code) => Permissions.Any(p => p.Grants(code));
 
         public override string ToString() => Username;
     }

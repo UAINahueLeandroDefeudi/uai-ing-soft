@@ -4,12 +4,12 @@ namespace UI.Roles
 {
     /// <summary>
     /// Dibuja roles y permisos (Composite) en un TreeView mediante funciones recursivas.
-    /// Lo comparten Mi perfil y Gestión de roles. El Tag de cada nodo guarda el Role o el Permission.
+    /// Lo comparten Mi perfil y Gestión de roles. El Tag de cada nodo guarda el Permission (un rol es un Permission con IsRol).
     /// </summary>
     public static class PermissionTreeBuilder
     {
         /// <summary>Un nodo raíz por rol; debajo, su árbol de permisos.</summary>
-        public static void LlenarArbolRoles(TreeView tv, IEnumerable<Role> roles)
+        public static void LlenarArbolRoles(TreeView tv, IEnumerable<Permission> roles)
         {
             tv.BeginUpdate();
             tv.Nodes.Clear();
@@ -19,13 +19,21 @@ namespace UI.Roles
                 var nodoRol = new TreeNode(rol.Name) { Tag = rol, ForeColor = Color.Blue };
                 tv.Nodes.Add(nodoRol);
 
-                foreach (var permiso in rol.Permissions)
+                foreach (var permiso in rol.GetChildren())
                     MostrarRecursivo(nodoRol, permiso);
             }
 
             tv.ExpandAll();
             tv.EndUpdate();
         }
+
+        /// <summary>Rol en azul, compuesto en verde, hoja en negro.</summary>
+        private static Color ColorDe(Permission permiso) => permiso switch
+        {
+            RolePermission => Color.Blue,
+            CompoundPermission => Color.DarkGreen,
+            _ => Color.Black
+        };
 
         /// <summary>
         /// Función recursiva del Composite: agrega un nodo para <paramref name="permiso"/>
@@ -37,7 +45,7 @@ namespace UI.Roles
             var nodo = new TreeNode(permiso.Name)
             {
                 Tag = permiso,
-                ForeColor = permiso.IsCompound ? Color.DarkGreen : Color.Black
+                ForeColor = ColorDe(permiso)
             };
             nodoPadre.Nodes.Add(nodo);
 

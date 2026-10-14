@@ -25,7 +25,7 @@ DATABASE="IF_DB"
 
 usage() {
     cat <<'USAGE'
-Asigna o quita un rol a un usuario existente en [dbo].[User_Role].
+Asigna o quita un rol a un usuario existente en [dbo].[User_Permission].
 
 Uso:
   ./set-user-role.sh -u <username> [opciones]
@@ -34,7 +34,7 @@ Obligatorio:
   -u <username>    Usuario existente
 
 Opcionales:
-  -r <rol>         Rol (default: administrador). Debe existir en [dbo].[Role]
+  -r <rol>         Rol (default: administrador). Debe existir en [dbo].[Permission] con IsRol = 1
   -x               Quita el rol en lugar de asignarlo
   -S <servidor>    Instancia SQL   (default: localhost\SQLEXPRESS)
   -d <base>        Base de datos   (default: IF_DB)
@@ -72,7 +72,7 @@ if ! command -v sqlcmd >/dev/null 2>&1; then
 fi
 
 # --- Las tablas de roles tienen que existir (las crea init-db.sh / el script 04) ---
-HAS_ROLES="$(sqlcmd -S "$SERVER" -E -C -h -1 -W -Q "SET NOCOUNT ON; SELECT CASE WHEN DB_ID('$DATABASE') IS NOT NULL AND OBJECT_ID('[$DATABASE].[dbo].[Role]', 'U') IS NOT NULL AND OBJECT_ID('[$DATABASE].[dbo].[User_Role]', 'U') IS NOT NULL THEN 1 ELSE 0 END" 2>/dev/null | tr -d '[:space:]' || true)"
+HAS_ROLES="$(sqlcmd -S "$SERVER" -E -C -h -1 -W -Q "SET NOCOUNT ON; SELECT CASE WHEN DB_ID('$DATABASE') IS NOT NULL AND OBJECT_ID('[$DATABASE].[dbo].[Permission]', 'U') IS NOT NULL AND OBJECT_ID('[$DATABASE].[dbo].[User_Permission]', 'U') IS NOT NULL THEN 1 ELSE 0 END" 2>/dev/null | tr -d '[:space:]' || true)"
 if [[ "$HAS_ROLES" != "1" ]]; then
     echo "Error: no existen las tablas de roles en [$DATABASE] (o no se pudo conectar a $SERVER)." >&2
     echo "       Crealas primero con:  ./sql/init-db.sh" >&2
@@ -86,11 +86,11 @@ u_sql="$(sql_str "$USERNAME")"
 r_sql="$(sql_str "$ROLE")"
 
 if [[ "$REMOVE" -eq 1 ]]; then
-    ACTION_SQL="DELETE FROM [dbo].[User_Role] WHERE [UserId] = @UserId AND [RoleId] = @RoleId;"
+    ACTION_SQL="DELETE FROM [dbo].[User_Permission] WHERE [UserId] = @UserId AND [PermissionId] = @RoleId;"
     VERB="quitado"
 else
-    ACTION_SQL="IF NOT EXISTS (SELECT 1 FROM [dbo].[User_Role] WHERE [UserId] = @UserId AND [RoleId] = @RoleId)
-        INSERT INTO [dbo].[User_Role] ([UserId], [RoleId]) VALUES (@UserId, @RoleId);"
+    ACTION_SQL="IF NOT EXISTS (SELECT 1 FROM [dbo].[User_Permission] WHERE [UserId] = @UserId AND [PermissionId] = @RoleId)
+        INSERT INTO [dbo].[User_Permission] ([UserId], [PermissionId]) VALUES (@UserId, @RoleId);"
     VERB="asignado"
 fi
 
@@ -105,20 +105,20 @@ SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 
 DECLARE @UserId UNIQUEIDENTIFIER = (SELECT [Id] FROM [dbo].[User] WHERE [Username] = $u_sql);
-DECLARE @RoleId INT              = (SELECT [Id] FROM [dbo].[Role] WHERE [Name]     = $r_sql);
+DECLARE @RoleId INT              = (SELECT [Id] FROM [dbo].[Permission] WHERE [Name] = $r_sql AND [IsRol] = 1);
 
 IF @UserId IS NULL
     RAISERROR('No existe un usuario con ese username', 16, 1);
 ELSE IF @RoleId IS NULL
-    RAISERROR('No existe un rol con ese nombre (ver [dbo].[Role])', 16, 1);
+    RAISERROR('No existe un rol con ese nombre (ver [dbo].[Permission] con IsRol = 1)', 16, 1);
 ELSE
 BEGIN
     $ACTION_SQL
 
     SELECT u.[Username], r.[Name] AS [Rol]
     FROM [dbo].[User] u
-    LEFT JOIN [dbo].[User_Role] ur ON ur.[UserId] = u.[Id]
-    LEFT JOIN [dbo].[Role]      r  ON r.[Id] = ur.[RoleId]
+    LEFT JOIN [dbo].[User_Permission] up ON up.[UserId] = u.[Id]
+    LEFT JOIN [dbo].[Permission]      r  ON r.[Id] = up.[PermissionId] AND r.[IsRol] = 1
     WHERE u.[Id] = @UserId
     ORDER BY r.[Id];
 END

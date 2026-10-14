@@ -146,6 +146,47 @@ namespace Tests
         }
 
         [Fact]
+        public void AddPermissionToRole_NestedRole_Succeeds()
+        {
+            SessionManager.Login(admin);
+            var basico = RoleWith("basico", 4, Simple("PROFILE"));
+            var rol = RoleWith("client", 3);
+
+            Assert.True(bll.AddPermissionToRole(rol, basico).Success);
+            Assert.True(rol.Grants("PROFILE"));
+        }
+
+        [Fact]
+        public void AddPermissionToRole_Cycle_Fails()
+        {
+            SessionManager.Login(admin);
+            var hijo = RoleWith("hijo", 4);
+            var padre = RoleWith("padre", 3, hijo);
+
+            Assert.False(bll.AddPermissionToRole(hijo, padre).Success);
+            Assert.False(hijo.Grants(padre.Code));
+        }
+
+        [Fact]
+        public void DeleteRole_OnLeafPermission_IsRejected()
+        {
+            SessionManager.Login(admin);
+            var hoja = Simple("PROFILE", 9);
+
+            Assert.False(bll.DeleteRole(hoja).Success);
+        }
+
+        [Fact]
+        public void AssignRoleToUser_OnNonRoleFamily_IsRejected()
+        {
+            SessionManager.Login(admin);
+            var target = UserWith("pepe");
+            target.Id = Guid.NewGuid();
+
+            Assert.False(bll.AssignRoleToUser(target, Compound("BASIC", Simple("PROFILE"))).Success);
+        }
+
+        [Fact]
         public void AssignRoleToUser_ThenDuplicate_Fails()
         {
             SessionManager.Login(admin);

@@ -252,6 +252,8 @@ INSERT INTO @T ([Clave], [Es], [En]) VALUES
     (N'msg.role.userHas',            N'''{0}'' ya tiene el rol ''{1}''.', NULL),
     (N'msg.role.assigned',           N'Rol asignado al usuario.', NULL),
     (N'msg.role.userHasNot',         N'''{0}'' no tiene el rol ''{1}''.', NULL),
+    (N'msg.role.notRole',            N'El permiso seleccionado no es un rol.', NULL),
+    (N'msg.role.cycle',              N'No se puede agregar ''{0}'' al rol ''{1}'': generaría un ciclo.', NULL),
     (N'msg.role.selfRemove',         N'No podés quitarte a vos mismo un rol que otorga la gestión de roles.', NULL),
     (N'msg.role.unassigned',         N'Rol quitado al usuario.', NULL),
     (N'msg.user.usernameLength',     N'El usuario debe tener entre {0} y {1} caracteres.', NULL),
@@ -300,16 +302,16 @@ GO
 
 IF OBJECT_ID('[dbo].[Permission]', 'U') IS NOT NULL
 BEGIN
-    INSERT INTO [dbo].[Permission] ([Code], [Name], [IsCompound])
-    SELECT 'GESTIONAR_IDIOMAS', 'Gestion de idiomas', 0
+    INSERT INTO [dbo].[Permission] ([Code], [Name], [IsFamily], [IsRol])
+    SELECT 'GESTIONAR_IDIOMAS', 'Gestion de idiomas', 0, 0
     WHERE NOT EXISTS (SELECT 1 FROM [dbo].[Permission] WHERE [Code] = 'GESTIONAR_IDIOMAS');
 
-    INSERT INTO [dbo].[Role_Permission] ([RoleId], [PermissionId])
+    INSERT INTO [dbo].[Permission_Permission] ([ParentId], [ChildId])
     SELECT r.[Id], p.[Id]
-    FROM [dbo].[Role] r
+    FROM [dbo].[Permission] r
     CROSS JOIN [dbo].[Permission] p
-    WHERE r.[Name] = 'administrador' AND p.[Code] = 'GESTIONAR_IDIOMAS'
-      AND NOT EXISTS (SELECT 1 FROM [dbo].[Role_Permission] x WHERE x.[RoleId] = r.[Id] AND x.[PermissionId] = p.[Id]);
+    WHERE r.[Code] = 'ROL_ADMINISTRADOR' AND p.[Code] = 'GESTIONAR_IDIOMAS'
+      AND NOT EXISTS (SELECT 1 FROM [dbo].[Permission_Permission] x WHERE x.[ParentId] = r.[Id] AND x.[ChildId] = p.[Id]);
 END
 GO
 

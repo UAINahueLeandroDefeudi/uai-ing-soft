@@ -1,14 +1,17 @@
 using System.Data;
 using BE.Entity;
-using BE.Mapper;
 using Microsoft.Data.SqlClient;
 
 namespace DAL
 {
+    /// <summary>
+    /// ABM de roles sobre el Composite (Modelo I). Un rol es una fila de [Permission]
+    /// con IsFamily = 1 e IsRol = 1. Los permisos simples (hojas) son un catálogo fijo:
+    /// ninguna operación de esta clase los crea, modifica ni elimina.
+    /// </summary>
     public class RoleDAL : IRoleDAL
     {
         private readonly DatabaseHelper dbHelper;
-        private readonly RoleMapper mapper;
         private readonly IPermissionDAL permissionDAL;
 
         public RoleDAL() : this(new PermissionDAL()) { }
@@ -16,41 +19,38 @@ namespace DAL
         public RoleDAL(IPermissionDAL permissionDAL)
         {
             dbHelper = new DatabaseHelper();
-            mapper = new RoleMapper();
             this.permissionDAL = permissionDAL;
         }
 
-        public List<Role> GetAll()
-        {
-            const string query = "SELECT * FROM [Role] ORDER BY Id";
-            return Load(query, []);
-        }
+        public List<Permission> GetAll()
+            => permissionDAL.GetAll().OfType<RolePermission>().ToList<Permission>();
 
-        public List<Role> GetByUser(Guid userId)
+        public List<Permission> GetByUser(Guid userId)
         {
-            const string query =
-                "SELECT r.* FROM [Role] r INNER JOIN [User_Role] ur ON ur.RoleId = r.Id WHERE ur.UserId = @UserId ORDER BY r.Id";
+            const string query = "SELECT PermissionId FROM [User_Permission] WHERE UserId = @UserId";
             SqlParameter[] parameters = [new SqlParameter("@UserId", userId)];
 
-            return Load(query, parameters);
+            var ids = dbHelper.ExecuteDataSet(query, CommandType.Text, parameters).Tables[0]
+                .Rows.Cast<DataRow>()
+                .Select(row => (int)row["PermissionId"])
+                .ToHashSet();
+
+            // Mismas instancias del catálogo: el árbol ya viene armado.
+            return GetAll().Where(r => ids.Contains(r.Id)).ToList();
         }
 
-        public Role? GetByName(string name)
-        {
-            const string query = "SELECT * FROM [Role] WHERE Name = @Name";
-            SqlParameter[] parameters = [new SqlParameter("@Name", name)];
+        public Permission? GetByName(string name)
+            => GetAll().FirstOrDefault(r => string.Equals(r.Name, name, StringComparison.OrdinalIgnoreCase));
 
-            return Load(query, parameters).FirstOrDefault();
-        }
-
-        public int Insert(Role role, string createdBy)
+        public int Insert(Permission role)
         {
             const string query =
-                "INSERT INTO [Role] (Name, CreatedBy) VALUES (@Name, @CreatedBy); SELECT CAST(SCOPE_IDENTITY() AS INT);";
+                "INSERT INTO [Permission] (Code, Name, IsFamily, IsRol) VALUES (@Code, @Name, 1, 1); " +
+                "SELECT CAST(SCOPE_IDENTITY() AS INT);";
             SqlParameter[] parameters =
             [
-                new SqlParameter("@Name", role.Name),
-                new SqlParameter("@CreatedBy", createdBy)
+                new SqlParameter("@Code", role.Code),
+                new SqlParameter("@Name", role.Name)
             ];
 
             return Convert.ToInt32(dbHelper.ExecuteScalar(query, CommandType.Text, parameters));
@@ -58,16 +58,31 @@ namespace DAL
 
         public void Delete(int roleId)
         {
-            // Role_Permission se va por ON DELETE CASCADE; User_Role no (la BLL lo valida antes).
-            const string query = "DELETE FROM [Role] WHERE Id = @Id";
-            SqlParameter[] parameters = [new SqlParameter("@Id", roleId)];
+            // La condición IsRol = 1 impide borrar una hoja o una familia que no es rol.
+            // Primero se sueltan sus relaciones (como padre y como hijo en otro rol).
+            const string deleteRelations =
+                "DELETE FROM [Permission_Permission] WHERE ParentId = @Id OR ChildId = @Id";
+            const string deleteRole = "DELETE FROM [Permission] WHERE Id = @Id AND IsRol = 1";
+            SqlParameter[] relationParameters = [new SqlParameter("@Id", roleId)];
+            SqlParameter[] roleParameters = [new SqlParameter("@Id", roleId)];
 
-            dbHelper.ExecuteNonQuery(query, CommandType.Text, parameters);
+            // Si el rol no es rol, la primera sentencia no debe haber borrado nada: se valida antes.
+            const string guard =
+                "IF NOT EXISTS (SELECT 1 FROM [Permission] WHERE Id = @Id AND IsRol = 1) " +
+                "THROW 50002, 'El permiso indicado no es un rol', 1;";
+            SqlParameter[] guardParameters = [new SqlParameter("@Id", roleId)];
+
+            dbHelper.ExecuteTransaction(
+            [
+                (guard, guardParameters),
+                (deleteRelations, relationParameters),
+                (deleteRole, roleParameters)
+            ]);
         }
 
         public bool HasUsers(int roleId)
         {
-            const string query = "SELECT COUNT(1) FROM [User_Role] WHERE RoleId = @RoleId";
+            const string query = "SELECT COUNT(1) FROM [User_Permission] WHERE PermissionId = @RoleId";
             SqlParameter[] parameters = [new SqlParameter("@RoleId", roleId)];
 
             return Convert.ToInt32(dbHelper.ExecuteScalar(query, CommandType.Text, parameters)) > 0;
@@ -76,8 +91,8 @@ namespace DAL
         public void AddPermission(int roleId, int permissionId)
         {
             const string query =
-                "IF NOT EXISTS (SELECT 1 FROM [Role_Permission] WHERE RoleId = @RoleId AND PermissionId = @PermissionId) " +
-                "INSERT INTO [Role_Permission] (RoleId, PermissionId) VALUES (@RoleId, @PermissionId)";
+                "IF NOT EXISTS (SELECT 1 FROM [Permission_Permission] WHERE ParentId = @RoleId AND ChildId = @PermissionId) " +
+                "INSERT INTO [Permission_Permission] (ParentId, ChildId) VALUES (@RoleId, @PermissionId)";
             SqlParameter[] parameters =
             [
                 new SqlParameter("@RoleId", roleId),
@@ -89,7 +104,7 @@ namespace DAL
 
         public void RemovePermission(int roleId, int permissionId)
         {
-            const string query = "DELETE FROM [Role_Permission] WHERE RoleId = @RoleId AND PermissionId = @PermissionId";
+            const string query = "DELETE FROM [Permission_Permission] WHERE ParentId = @RoleId AND ChildId = @PermissionId";
             SqlParameter[] parameters =
             [
                 new SqlParameter("@RoleId", roleId),
@@ -102,8 +117,8 @@ namespace DAL
         public void AssignToUser(Guid userId, int roleId)
         {
             const string query =
-                "IF NOT EXISTS (SELECT 1 FROM [User_Role] WHERE UserId = @UserId AND RoleId = @RoleId) " +
-                "INSERT INTO [User_Role] (UserId, RoleId) VALUES (@UserId, @RoleId)";
+                "IF NOT EXISTS (SELECT 1 FROM [User_Permission] WHERE UserId = @UserId AND PermissionId = @RoleId) " +
+                "INSERT INTO [User_Permission] (UserId, PermissionId) VALUES (@UserId, @RoleId)";
             SqlParameter[] parameters =
             [
                 new SqlParameter("@UserId", userId),
@@ -115,7 +130,7 @@ namespace DAL
 
         public void RemoveFromUser(Guid userId, int roleId)
         {
-            const string query = "DELETE FROM [User_Role] WHERE UserId = @UserId AND RoleId = @RoleId";
+            const string query = "DELETE FROM [User_Permission] WHERE UserId = @UserId AND PermissionId = @RoleId";
             SqlParameter[] parameters =
             [
                 new SqlParameter("@UserId", userId),
@@ -123,28 +138,6 @@ namespace DAL
             ];
 
             dbHelper.ExecuteNonQuery(query, CommandType.Text, parameters);
-        }
-
-        /// <summary>Ejecuta la consulta de roles y les carga sus permisos desde el catálogo.</summary>
-        private List<Role> Load(string query, SqlParameter[] parameters)
-        {
-            var roles = mapper.MapAll(dbHelper.ExecuteDataSet(query, CommandType.Text, parameters).Tables[0]).ToList();
-            if (roles.Count == 0) return roles;
-
-            var catalog = permissionDAL.GetAll();
-            const string queryRolePermissions = "SELECT RoleId, PermissionId FROM [Role_Permission]";
-            var rolePermissions = dbHelper.ExecuteDataSet(queryRolePermissions, CommandType.Text, []).Tables[0];
-
-            foreach (var role in roles)
-            {
-                foreach (DataRow row in rolePermissions.Select($"RoleId = {role.Id}"))
-                {
-                    var permission = catalog.FirstOrDefault(p => p.Id == (int)row["PermissionId"]);
-                    if (permission != null) role.AddPermission(permission);
-                }
-            }
-
-            return roles;
         }
     }
 }

@@ -8,7 +8,7 @@ namespace UI.Roles
     /// <summary>
     /// Gestión de roles y permisos (T04). Los tres TreeView se llenan con funciones
     /// recursivas que recorren el Composite de permisos (PermissionTreeBuilder.MostrarRecursivo).
-    /// El Tag de cada nodo guarda el objeto de negocio (Role o Permission).
+    /// El Tag de cada nodo guarda el objeto de negocio (Permission; los roles tienen IsRol).
     /// </summary>
     public partial class FrmRoleManagement : FrmTraducible
     {
@@ -104,7 +104,7 @@ namespace UI.Roles
         /// <summary>
         /// Catálogo general: ROLES, PERMISOS COMPUESTOS (con su árbol) y PERMISOS SIMPLES.
         /// </summary>
-        private void LlenarCatalogo(List<Permission> catalogo, List<Role> roles)
+        private void LlenarCatalogo(List<Permission> catalogo, List<Permission> roles)
         {
             tvCatalogo.BeginUpdate();
             tvCatalogo.Nodes.Clear();
@@ -116,10 +116,10 @@ namespace UI.Roles
             foreach (var rol in roles)
                 nodoRoles.Nodes.Add(new TreeNode(rol.Name) { Tag = rol, ForeColor = Color.Blue });
 
-            foreach (var permiso in catalogo.Where(p => p.IsCompound))
+            foreach (var permiso in catalogo.OfType<CompoundPermission>().Where(p => p is not RolePermission))
                 PermissionTreeBuilder.MostrarRecursivo(nodoCompuestos, permiso);
 
-            foreach (var permiso in catalogo.Where(p => !p.IsCompound))
+            foreach (var permiso in catalogo.OfType<SimplePermission>())
                 PermissionTreeBuilder.MostrarRecursivo(nodoSimples, permiso);
 
             tvCatalogo.Nodes.AddRange([nodoRoles, nodoCompuestos, nodoSimples]);
@@ -132,11 +132,11 @@ namespace UI.Roles
         private void CbUsuarios_SelectedIndexChanged(object? sender, EventArgs e) => CargarPermisosEfectivos();
 
         /// <summary>Rol al que pertenece el nodo: el nodo mismo o su ancestro raíz.</summary>
-        private static Role? RolDelNodo(TreeNode? nodo)
+        private static Permission? RolDelNodo(TreeNode? nodo)
         {
             while (nodo != null)
             {
-                if (nodo.Tag is Role rol) return rol;
+                if (nodo.Tag is RolePermission rol) return rol;
                 nodo = nodo.Parent;
             }
 
@@ -176,7 +176,7 @@ namespace UI.Roles
         private void BtnQuitarPermisoRol_Click(object sender, EventArgs e)
         {
             var nodo = tvRoles.SelectedNode;
-            if (nodo?.Tag is not Permission permiso || nodo.Parent?.Tag is not Role rol)
+            if (nodo?.Tag is not Permission permiso || nodo.Parent?.Tag is not RolePermission rol)
             { Avisar(T("FrmRoleManagement.selPermisoAsignado")); return; }
 
             Ejecutar(() => roleBLL.RemovePermissionFromRole(rol, permiso));
@@ -186,8 +186,8 @@ namespace UI.Roles
         {
             if (cbUsuarios.SelectedItem is not User usuario) { Avisar(T("FrmRoleManagement.selUsuario")); return; }
 
-            var rol = tvCatalogo.SelectedNode?.Tag as Role;
-            if (rol == null) { Avisar(T("FrmRoleManagement.selRolCatalogo")); return; }
+            var rol = tvCatalogo.SelectedNode?.Tag as Permission;
+            if (rol is not { IsRol: true }) { Avisar(T("FrmRoleManagement.selRolCatalogo")); return; }
 
             Ejecutar(() => roleBLL.AssignRoleToUser(usuario, rol));
         }
@@ -196,8 +196,8 @@ namespace UI.Roles
         {
             if (cbUsuarios.SelectedItem is not User usuario) { Avisar(T("FrmRoleManagement.selUsuario")); return; }
 
-            var rol = tvEfectivos.SelectedNode?.Tag as Role;
-            if (rol == null) { Avisar(T("FrmRoleManagement.selRolEfectivo")); return; }
+            var rol = tvEfectivos.SelectedNode?.Tag as Permission;
+            if (rol is not { IsRol: true }) { Avisar(T("FrmRoleManagement.selRolEfectivo")); return; }
 
             Ejecutar(() => roleBLL.RemoveRoleFromUser(usuario, rol));
         }

@@ -5,27 +5,30 @@
 Que cada usuario tenga uno o más **roles** y que cada rol otorgue **permisos**
 simples o compuestos, de modo que el sistema pueda (a) decidir qué opciones
 mostrar y ejecutar, y (b) mostrar el árbol de permisos en un `TreeView` mediante
-funciones recursivas. Se implementa el **Modelo II** (el Rol es una entidad
-aparte que agrega permisos); el Modelo I (rol = permiso compuesto) está
-documentado como alternativa en [DC-modelo-I-vs-II-permisos.md](DC-modelo-I-vs-II-permisos.md).
+funciones recursivas. Se implementa el **Modelo I**: un rol es un permiso
+compuesto marcado con `IsRol` (no hay clase ni tabla `Role`). El Modelo II
+(rol separado) quedó como alternativa descartada en
+[DC-modelo-I-vs-II-permisos.md](DC-modelo-I-vs-II-permisos.md).
 
 ## Aplicación del patrón
 
 | Rol en el patrón | Clase (`BE.Entity`) | Qué es en el dominio |
 |---|---|---|
-| *Component* | `Permission` (abstracta) | Un permiso genérico (simple o compuesto) |
+| *Component* | `Permission` (abstracta) | Un permiso genérico (simple o familia) |
 | *Leaf* | `SimplePermission` | Permiso atómico sobre una acción (ej. `GESTIONAR_ROLES`) |
 | *Composite* | `CompoundPermission` | Agrupa permisos simples y/u otros compuestos (ej. `SESION_BASICA`) |
-| *Client* | `Role`, `User`, `SessionManager`, `FrmRoleManagement` | Tratan igual a un permiso simple y a uno compuesto |
+| *Composite* (rol) | `RolePermission` (subclase de `CompoundPermission`) | Familia que se asigna a usuarios (ej. `administrador`) |
+| *Client* | `User`, `SessionManager`, `FrmRoleManagement` | Tratan igual a un permiso simple y a uno compuesto |
 
-El `Role` **no** es parte del Composite: es el contenedor raíz que agrega
-`Permission`. Un `User` tiene N roles (relación N:M).
+El rol **es** parte del Composite: es una subclase (`RolePermission`, `IsRol = true`), por lo
+que un rol puede contener otro rol (rol anidado). Un `User` tiene N permisos
+asignados (sólo roles, validado en la BLL).
 
 > Equivalencia con los nombres del ejemplo de la cátedra: `ComponentePermiso` →
 > `Permission`, `PatenteBE` → `SimplePermission`, `FamiliaBE` →
 > `CompoundPermission`, `AgregarHijo/RemoverHijo/ObtenerHijos` →
 > `Add/Remove/GetChildren`. La clase `Familia` del ejemplo hacía de rol *y* de
-> agrupación; acá se separan (Modelo II).
+> agrupación; acá vuelven a unirse: `RolePermission` es un `CompoundPermission`.
 
 ## Diagrama de clases
 
@@ -38,17 +41,17 @@ classDiagram
         +int Id
         +string Code
         +string Name
-        +bool IsCompound*
+        +bool IsRol
         +GetChildren()* IReadOnlyList~Permission~
         +Add(Permission p)* void
         +Remove(Permission p)* void
+        +LoadChildren(ILookup children)* void
+        +Flatten()* IEnumerable~Permission~
         +Grants(string code) bool
         +Contains(Permission p) bool
-        +Flatten() IEnumerable~Permission~
     }
 
     class SimplePermission {
-        +bool IsCompound = false
         +GetChildren() IReadOnlyList~Permission~
         +Add(Permission p) void
         +Remove(Permission p) void
@@ -56,25 +59,20 @@ classDiagram
 
     class CompoundPermission {
         -List~Permission~ _children
-        +bool IsCompound = true
         +GetChildren() IReadOnlyList~Permission~
         +Add(Permission p) void
         +Remove(Permission p) void
     }
 
-    class Role {
-        +int Id
-        +string Name
-        +IReadOnlyList~Permission~ Permissions
-        +AddPermission(Permission p) void
-        +RemovePermission(Permission p) void
-        +Grants(string code) bool
+    class RolePermission {
+        +bool IsRol = true
     }
 
     class User {
         +Guid Id
         +string Username
-        +List~Role~ Roles
+        +List~Permission~ Permissions
+        +Roles IReadOnlyList~Permission~
         +HasPermission(string code) bool
     }
 
@@ -85,14 +83,14 @@ classDiagram
     }
 
     class RoleBLL {
-        +GetRoles() List~Role~
+        +GetRoles() List~Permission~
         +GetPermissionCatalog() List~Permission~
         +CreateRole(string name) OperationResult
-        +DeleteRole(Role r) OperationResult
-        +AddPermissionToRole(Role r, Permission p) OperationResult
-        +RemovePermissionFromRole(Role r, Permission p) OperationResult
-        +AssignRoleToUser(User u, Role r) OperationResult
-        +RemoveRoleFromUser(User u, Role r) OperationResult
+        +DeleteRole(Permission role) OperationResult
+        +AddPermissionToRole(Permission role, Permission p) OperationResult
+        +RemovePermissionFromRole(Permission role, Permission p) OperationResult
+        +AssignRoleToUser(User u, Permission role) OperationResult
+        +RemoveRoleFromUser(User u, Permission role) OperationResult
     }
 
     class UserBLL {
@@ -112,9 +110,9 @@ classDiagram
 
     class IRoleDAL {
         <<interface>>
-        +GetAll() List~Role~
-        +GetByUser(Guid id) List~Role~
-        +Insert(Role r, string by) int
+        +GetAll() List~Permission~
+        +GetByUser(Guid id) List~Permission~
+        +Insert(Permission role) int
         +Delete(int id) void
         +HasUsers(int id) bool
         +AddPermission(int roleId, int permId) void
@@ -126,11 +124,10 @@ classDiagram
     class PermissionDAL
     class RoleDAL
     class PermissionMapper
-    class RoleMapper
 
     class FrmRoleManagement {
         -CargarTodo() void
-        -LlenarArbolRoles(TreeView tv, IEnumerable~Role~ roles) void
+        -LlenarArbolRoles(TreeView tv, IEnumerable~Permission~ roles) void
         -MostrarRecursivo(TreeNode padre, Permission p)$ void
     }
     class FrmRegister
@@ -140,16 +137,14 @@ classDiagram
 
     Permission <|-- SimplePermission
     Permission <|-- CompoundPermission
+    CompoundPermission <|-- RolePermission
     CompoundPermission o--> "0..*" Permission : _children (recursivo)
-    Role o--> "0..*" Permission : Permissions
-    User o--> "0..*" Role : Roles
+    User o--> "0..*" Permission : Permissions (roles)
     SessionManager --> "1" User
-    SessionManager ..> Role : recorre
     IPermissionDAL <|.. PermissionDAL
     IRoleDAL <|.. RoleDAL
     PermissionDAL ..> PermissionMapper
-    RoleDAL ..> RoleMapper
-    RoleDAL --> IPermissionDAL
+    RoleDAL --> IPermissionDAL : roles = catálogo con IsRol
     RoleBLL --> IRoleDAL
     RoleBLL --> IPermissionDAL
     RoleBLL ..> SessionManager : autoriza
@@ -173,13 +168,15 @@ public bool Grants(string code)
         if (child.Grants(code)) return true;
     return false;
 }
-// Role.Grants(code)  => Permissions.Any(p => p.Grants(code))
-// User.HasPermission => Roles.Any(r => r.Grants(code))
+// Un rol es un compuesto: role.Grants(code) ya recorre sus hijos.
+// User.HasPermission => Permissions.Any(p => p.Grants(code))
 ```
 
-**Armado del árbol en memoria** — `PermissionDAL.FillChildren`: se leen
-`[Permission]` y `[Permission_Permission]` y cada compuesto se llena a sí mismo
-descendiendo por sus hijos (equivalente al `LlenarFamiliaComponentes` del ejemplo).
+**Armado del árbol en memoria** — `PermissionDAL.GetAll`: se leen `[Permission]` y
+`[Permission_Permission]`, se arma un `ILookup` padre → hijos y se llama
+`LoadChildren` sobre **todo** el catálogo, sin preguntar el tipo: la hoja ignora la
+llamada y el compuesto agrega los suyos. El único punto que decide la clase es
+`PermissionMapper` (tabla `(IsFamily, IsRol)` → clase, sin `if`).
 
 **Presentación en `TreeView`** — `FrmRoleManagement.MostrarRecursivo`:
 
@@ -199,12 +196,16 @@ private static void MostrarRecursivo(TreeNode nodoPadre, Permission permiso)
 
 ## Reglas de negocio
 
-- **Catálogo de permisos fijo**: no hay alta, baja ni modificación de permisos
-  (simples ni compuestos); se siembran con `sql/04_init_create_roles_permission.sql`.
-  Sólo se **agregan o quitan** permisos a un rol. El ABM completo es de **roles**.
+- **Los permisos simples (hojas) no tienen ABM**: son un catálogo fijo sembrado con
+  `sql/04_init_create_roles_permission.sql`. La aplicación sólo da de alta, baja y
+  modifica **roles** (`IsRol = 1`) y agrega o quita sus hijos. `RoleDAL.Delete`
+  filtra por `IsRol = 1` y `RoleBLL` rechaza operar sobre algo que no sea rol.
 - Un rol no se elimina si tiene usuarios asignados ni si es `invitado`.
 - No se puede agregar a un rol un permiso que ya otorga (directo o por un
   compuesto), ni quitar uno que no esté asignado directamente.
+- Un rol puede contener otro rol (rol anidado); los ciclos se rechazan
+  (`msg.role.cycle`) antes de persistir.
+- Sólo se asignan a usuarios permisos con `IsRol` (`msg.role.notRole`).
 - Un administrador no puede quitarse a sí mismo un rol que otorga `GESTIONAR_ROLES`.
 - Todo usuario que se registra recibe el rol `invitado` (sólo *Mi perfil* y *Cerrar sesión*).
 - Cada operación valida el permiso en la **BLL** (no sólo oculta el menú) y deja

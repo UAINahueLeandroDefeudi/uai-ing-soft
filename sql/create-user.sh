@@ -51,7 +51,7 @@ Opcionales:
   -l <apellido>    LastName           (default: Apellido)
   -e <email>       Email              (default: NULL)
   -r <rol>         Rol a asignar (default: administrador). 'ninguno' = sin rol.
-                   Debe existir en [dbo].[Role] (sql/04_init_create_roles_permission.sql)
+                   Debe existir en [dbo].[Permission] con IsRol = 1 (sql/04_init_create_roles_permission.sql)
   -S <servidor>    Instancia SQL      (default: localhost\SQLEXPRESS)
   -d <base>        Base de datos      (default: IF_DB)
   -h               Muestra esta ayuda
@@ -130,18 +130,18 @@ ROLE_CHECK_SQL=""
 ROLE_ASSIGN_SQL=""
 if [[ "$ROLE" != "ninguno" ]]; then
     r_sql="$(sql_str "$ROLE")"
-    # Dos pasos: si [Role] no existe, el SELECT sobre ella ni siquiera debe evaluarse.
-    ROLE_CHECK_SQL="ELSE IF OBJECT_ID('[dbo].[Role]', 'U') IS NULL
+    # Dos pasos: si [Permission] no existe, el SELECT sobre ella ni siquiera debe evaluarse.
+    ROLE_CHECK_SQL="ELSE IF OBJECT_ID('[dbo].[Permission]', 'U') IS NULL
 BEGIN
     RAISERROR('Faltan las tablas de roles (ejecutar sql/init-db.sh o usar -r ninguno)', 16, 1);
 END
-ELSE IF NOT EXISTS (SELECT 1 FROM [dbo].[Role] WHERE [Name] = $r_sql)
+ELSE IF NOT EXISTS (SELECT 1 FROM [dbo].[Permission] WHERE [Name] = $r_sql AND [IsRol] = 1)
 BEGIN
-    RAISERROR('El rol indicado no existe en [dbo].[Role]', 16, 1);
+    RAISERROR('El rol indicado no existe en [dbo].[Permission]', 16, 1);
 END"
-    ROLE_ASSIGN_SQL="INSERT INTO [dbo].[User_Role] ([UserId], [RoleId])
-    SELECT u.[Id], r.[Id] FROM [dbo].[User] u, [dbo].[Role] r
-    WHERE u.[Username] = $u_sql AND r.[Name] = $r_sql;"
+    ROLE_ASSIGN_SQL="INSERT INTO [dbo].[User_Permission] ([UserId], [PermissionId])
+    SELECT u.[Id], r.[Id] FROM [dbo].[User] u, [dbo].[Permission] r
+    WHERE u.[Username] = $u_sql AND r.[Name] = $r_sql AND r.[IsRol] = 1;"
 fi
 
 # --- Script temporal (sqlcmd necesita ruta Windows) ---

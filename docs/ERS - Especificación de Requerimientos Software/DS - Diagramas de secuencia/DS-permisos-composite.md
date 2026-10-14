@@ -20,8 +20,8 @@ sequenceDiagram
 
     SBLL->>SBLL: HashManager.VerifyPassword() = OK
     SBLL->>+RDAL: GetByUser(user.Id)
-    RDAL->>+BD: SELECT Role JOIN User_Role
-    BD-->>-RDAL: roles del usuario
+    RDAL->>+BD: SELECT PermissionId FROM User_Permission
+    BD-->>-RDAL: ids de los roles del usuario
     RDAL->>+PDAL: GetAll()
     PDAL->>+BD: SELECT Permission + SELECT Permission_Permission
     BD-->>-PDAL: filas
@@ -29,16 +29,15 @@ sequenceDiagram
         PDAL->>PDAL: FillChildren(compuesto) [recursivo]
     end
     PDAL-->>-RDAL: catálogo con árbol armado
-    RDAL->>+BD: SELECT Role_Permission
-    BD-->>-RDAL: (RoleId, PermissionId)
-    RDAL->>RDAL: role.AddPermission(permiso del catálogo)
-    RDAL-->>-SBLL: List~Role~
-    SBLL->>U: Roles = roles
+    RDAL->>RDAL: filtra del catálogo los roles (IsRol) del usuario
+    RDAL-->>-SBLL: List~Permission~
+    SBLL->>U: Permissions = roles
     SBLL->>SM: Login(user)
 ```
 
-> `PermissionMapper` decide qué clase instanciar mirando `IsCompound`: `0` →
-> `SimplePermission` (Leaf), `1` → `CompoundPermission` (Composite).
+> `PermissionMapper` decide qué clase instanciar mirando `IsFamily`: `0` →
+> `SimplePermission` (Leaf), `1` → `CompoundPermission` (Composite); `IsRol`
+> marca las familias que son roles.
 > Los roles se cargan **antes** de abrir la sesión para que la bitácora del
 > login ya registre los roles y permisos del usuario.
 
@@ -51,7 +50,7 @@ sequenceDiagram
     participant SBLL as SessionBLL
     participant SM as SessionManager
     participant U as User
-    participant R as Role client
+    participant R as CompoundPermission client (IsRol)
     participant C as CompoundPermission SESION_BASICA
     participant L as SimplePermission VER_MI_PERFIL
 
@@ -97,7 +96,7 @@ sequenceDiagram
     UD-->>-UB: no existe
     UB->>H: GenerateSalt() / HashPassword()
     UB->>+UD: Insert(user, "invitado")
-    UD->>+BD: BEGIN TRAN: INSERT User + INSERT User_Role (rol invitado)
+    UD->>+BD: BEGIN TRAN: INSERT User + INSERT User_Permission (rol invitado)
     BD-->>-UD: COMMIT
     UD-->>-UB: ok
     UB->>B: RegistrarEvento(CrearUsuario)
@@ -105,7 +104,7 @@ sequenceDiagram
     R-->>L: DialogResult.OK (precarga el usuario)
 ```
 
-> Si el rol `invitado` no existe, el `INSERT` a `User_Role` afecta 0 filas, se
+> Si el rol `invitado` no existe, el `INSERT` a `User_Permission` afecta 0 filas, se
 > lanza un error y la transacción hace *rollback*: nunca queda un usuario sin rol.
 
 ## 4. Agregar un permiso a un rol
@@ -125,11 +124,13 @@ sequenceDiagram
     alt sin permiso
         RB->>B: RegistrarError(AccesoNoAutorizado)
         RB-->>F: Fail("No tenés permiso...")
+    else permission.Contains(role) (ciclo)
+        RB-->>F: Fail("Generaría un ciclo")
     else role.Grants(permission.Code) (ya lo otorga)
         RB-->>F: Fail("El rol ya otorga ...")
     else
         RB->>RD: AddPermission(roleId, permissionId)
-        RB->>RB: role.AddPermission(permission)
+        RB->>RB: role.Add(permission)
         RB->>B: RegistrarEvento(AsignarPermisoRol)
         RB-->>-F: Ok
         F->>F: CargarTodo() → LlenarArbolRoles → MostrarRecursivo

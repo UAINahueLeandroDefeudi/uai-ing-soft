@@ -74,7 +74,7 @@ namespace Services
 
             var roles = string.Join(", ", user.Roles.Select(r => r.Name));
             var permisos = user.Roles
-                .SelectMany(r => r.Permissions)
+                .SelectMany(r => r.GetChildren())
                 .SelectMany(p => p.Flatten())
                 .Select(p => p.Code)
                 .Distinct();

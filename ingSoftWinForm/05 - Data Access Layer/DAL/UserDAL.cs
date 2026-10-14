@@ -102,7 +102,7 @@ namespace DAL
 
             // Falla (y la transacción hace rollback) si el rol no existe: no queda un usuario sin rol.
             const string insertRole =
-                "INSERT INTO [User_Role] (UserId, RoleId) SELECT @UserId, Id FROM [Role] WHERE Name = @RoleName; " +
+                "INSERT INTO [User_Permission] (UserId, PermissionId) SELECT @UserId, Id FROM [Permission] WHERE Name = @RoleName AND IsRol = 1; " +
                 "IF @@ROWCOUNT = 0 THROW 50001, 'El rol indicado no existe', 1;";
             SqlParameter[] roleParameters =
             [

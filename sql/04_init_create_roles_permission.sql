@@ -1,20 +1,22 @@
 /* ============================================================
-   T04 Gestion de Perfiles de Usuario - Roles y permisos (Composite, Modelo II)
+   T04 Gestion de Perfiles de Usuario - Roles y permisos (Composite, Modelo I)
    Base: IF_DB
    Ejecucion: sqlcmd -S localhost\SQLEXPRESS -E -C -I -d IF_DB -i sql\04_init_create_roles_permission.sql
 
-   Modelo II: el Rol es una entidad aparte que agrega Permisos. Los permisos forman
-   el Composite: simple (hoja) o compuesto (agrupa otros permisos).
-     [Permission]            Component: simples (IsCompound = 0) y compuestos (IsCompound = 1)
-     [Permission_Permission] relacion padre-hijo del Composite (compuesto -> permiso)
-     [Role]                  rol (ABM desde la aplicacion)
-     [Role_Permission]       permisos que otorga cada rol
-     [User_Role]             roles de cada usuario (N:M, un usuario puede tener varios)
+   Modelo I: el Rol es un permiso mas del Composite. Tres tablas:
+     [Permission]            Component. IsFamily = 0 hoja (permiso simple), 1 familia (compuesto).
+                             IsRol = 1 marca las familias que se asignan a usuarios (roles).
+     [Permission_Permission] relacion padre-hijo del Composite (familia -> permiso). Un rol
+                             contiene permisos simples, familias u otros roles (rol anidado).
+     [User_Permission]       roles de cada usuario (N:M, un usuario puede tener varios)
+
+   Los permisos simples (hojas) son un catalogo fijo: se siembran aca y la aplicacion no
+   los crea, modifica ni elimina. La aplicacion solo gestiona roles (IsRol = 1) y sus hijos.
 
    A diferencia de 01, NO se dropean las tablas: son datos gestionables desde la
-   aplicacion (roles y asignaciones) y reejecutar no puede borrarlos. Los permisos
-   simples y compuestos son un catalogo fijo: se siembran aca y la aplicacion no los
-   crea, modifica ni elimina. El script es idempotente.
+   aplicacion (roles y asignaciones) y reejecutar no puede borrarlos. El script es
+   idempotente y migra una base del Modelo II anterior ([Role], [Role_Permission],
+   [User_Role], [Permission].[IsCompound]) sin perder datos.
    Requiere que exista [dbo].[User] (01_create_table_User.sql).
    ============================================================ */
 USE [IF_DB];
@@ -29,12 +31,15 @@ IF OBJECT_ID('[dbo].[Permission]', 'U') IS NULL
 BEGIN
     CREATE TABLE [dbo].[Permission]
     (
-        [Id]         INT IDENTITY(1,1) NOT NULL,
-        [Code]       NVARCHAR(50)      NOT NULL,   -- estable, es lo que consulta el sistema (HasPermission)
-        [Name]       NVARCHAR(100)     NOT NULL,   -- texto visible en la UI
-        [IsCompound] BIT               NOT NULL CONSTRAINT [DF_Permission_IsCompound] DEFAULT 0,
+        [Id]       INT IDENTITY(1,1) NOT NULL,
+        [Code]     NVARCHAR(100)     NOT NULL,   -- estable, es lo que consulta el sistema (HasPermission)
+        [Name]     NVARCHAR(100)     NOT NULL,   -- texto visible en la UI
+        [IsFamily] BIT               NOT NULL CONSTRAINT [DF_Permission_IsFamily] DEFAULT 0,
+        [IsRol]    BIT               NOT NULL CONSTRAINT [DF_Permission_IsRol] DEFAULT 0,
         CONSTRAINT [PK_Permission]      PRIMARY KEY CLUSTERED ([Id] ASC),
-        CONSTRAINT [UQ_Permission_Code] UNIQUE ([Code])
+        CONSTRAINT [UQ_Permission_Code] UNIQUE ([Code]),
+        -- Una hoja nunca es rol.
+        CONSTRAINT [CK_Permission_RolIsFamily] CHECK ([IsRol] = 0 OR [IsFamily] = 1)
     );
 END
 GO
@@ -43,8 +48,8 @@ IF OBJECT_ID('[dbo].[Permission_Permission]', 'U') IS NULL
 BEGIN
     CREATE TABLE [dbo].[Permission_Permission]
     (
-        [ParentId] INT NOT NULL,   -- permiso compuesto
-        [ChildId]  INT NOT NULL,   -- permiso simple u otro compuesto
+        [ParentId] INT NOT NULL,   -- familia (compuesto o rol)
+        [ChildId]  INT NOT NULL,   -- permiso simple, familia u otro rol
         CONSTRAINT [PK_Permission_Permission]        PRIMARY KEY CLUSTERED ([ParentId], [ChildId]),
         CONSTRAINT [FK_PermPerm_Parent]              FOREIGN KEY ([ParentId]) REFERENCES [dbo].[Permission] ([Id]),
         CONSTRAINT [FK_PermPerm_Child]               FOREIGN KEY ([ChildId])  REFERENCES [dbo].[Permission] ([Id]),
@@ -53,72 +58,91 @@ BEGIN
 END
 GO
 
-IF OBJECT_ID('[dbo].[Role]', 'U') IS NULL
+IF OBJECT_ID('[dbo].[User_Permission]', 'U') IS NULL
 BEGIN
-    CREATE TABLE [dbo].[Role]
+    CREATE TABLE [dbo].[User_Permission]
     (
-        [Id]        INT IDENTITY(1,1) NOT NULL,
-        [Name]      NVARCHAR(50)      NOT NULL,
-        -- Auditoria (refleja BE.Base.BaseAuditEntity)
-        [CreatedAt] DATETIME2         NOT NULL CONSTRAINT [DF_Role_CreatedAt] DEFAULT SYSDATETIME(),
-        [CreatedBy] NVARCHAR(50)      NULL,
-        [UpdatedAt] DATETIME2         NULL,
-        [UpdatedBy] NVARCHAR(50)      NULL,
-        CONSTRAINT [PK_Role]      PRIMARY KEY CLUSTERED ([Id] ASC),
-        CONSTRAINT [UQ_Role_Name] UNIQUE ([Name])
-    );
-END
-GO
-
-IF OBJECT_ID('[dbo].[Role_Permission]', 'U') IS NULL
-BEGIN
-    CREATE TABLE [dbo].[Role_Permission]
-    (
-        [RoleId]       INT NOT NULL,
-        [PermissionId] INT NOT NULL,
-        CONSTRAINT [PK_Role_Permission]      PRIMARY KEY CLUSTERED ([RoleId], [PermissionId]),
-        -- Al borrar un rol se van con el sus asignaciones de permisos.
-        CONSTRAINT [FK_RolePerm_Role]        FOREIGN KEY ([RoleId])       REFERENCES [dbo].[Role] ([Id]) ON DELETE CASCADE,
-        CONSTRAINT [FK_RolePerm_Permission]  FOREIGN KEY ([PermissionId]) REFERENCES [dbo].[Permission] ([Id])
-    );
-END
-GO
-
-IF OBJECT_ID('[dbo].[User_Role]', 'U') IS NULL
-BEGIN
-    CREATE TABLE [dbo].[User_Role]
-    (
-        [UserId] UNIQUEIDENTIFIER NOT NULL,
-        [RoleId] INT              NOT NULL,
-        CONSTRAINT [PK_User_Role]   PRIMARY KEY CLUSTERED ([UserId], [RoleId]),
-        CONSTRAINT [FK_UserRole_User] FOREIGN KEY ([UserId]) REFERENCES [dbo].[User] ([Id]),
+        [UserId]       UNIQUEIDENTIFIER NOT NULL,
+        [PermissionId] INT              NOT NULL,
+        CONSTRAINT [PK_User_Permission]   PRIMARY KEY CLUSTERED ([UserId], [PermissionId]),
+        CONSTRAINT [FK_UserPerm_User]       FOREIGN KEY ([UserId])       REFERENCES [dbo].[User] ([Id]),
         -- Sin cascade: un rol con usuarios asignados no se puede borrar (lo valida RoleBLL).
-        CONSTRAINT [FK_UserRole_Role] FOREIGN KEY ([RoleId]) REFERENCES [dbo].[Role] ([Id])
+        CONSTRAINT [FK_UserPerm_Permission] FOREIGN KEY ([PermissionId]) REFERENCES [dbo].[Permission] ([Id])
     );
 END
 GO
 
-/* ---------- Seed: catalogo de permisos ---------- */
+/* ---------- Migracion desde el Modelo II (solo si existen las tablas viejas) ---------- */
 
-DECLARE @Permissions TABLE ([Code] NVARCHAR(50), [Name] NVARCHAR(100), [IsCompound] BIT);
-INSERT INTO @Permissions ([Code], [Name], [IsCompound]) VALUES
+-- [Permission].[IsCompound] pasa a [IsFamily]; se agrega [IsRol].
+IF COL_LENGTH('[dbo].[Permission]', 'IsCompound') IS NOT NULL AND COL_LENGTH('[dbo].[Permission]', 'IsFamily') IS NULL
+    EXEC sp_rename '[dbo].[Permission].[IsCompound]', 'IsFamily', 'COLUMN';
+GO
+IF COL_LENGTH('[dbo].[Permission]', 'IsRol') IS NULL
+    EXEC('ALTER TABLE [dbo].[Permission] ADD [IsRol] BIT NOT NULL CONSTRAINT [DF_Permission_IsRol] DEFAULT 0;');
+GO
+-- Una hoja nunca es rol (en bases nuevas ya viene en el CREATE TABLE).
+IF OBJECT_ID('[dbo].[CK_Permission_RolIsFamily]') IS NULL
+    EXEC('ALTER TABLE [dbo].[Permission] ADD CONSTRAINT [CK_Permission_RolIsFamily] CHECK ([IsRol] = 0 OR [IsFamily] = 1);');
+GO
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID('[dbo].[Permission]') AND name = 'Code' AND max_length < 200)
+    EXEC('ALTER TABLE [dbo].[Permission] ALTER COLUMN [Code] NVARCHAR(100) NOT NULL;');
+GO
+
+IF OBJECT_ID('[dbo].[Role]', 'U') IS NOT NULL
+BEGIN
+    -- Cada rol pasa a ser una familia con IsRol = 1 (Code = ROL_<NOMBRE>).
+    EXEC('INSERT INTO [dbo].[Permission] ([Code], [Name], [IsFamily], [IsRol])
+          SELECT N''ROL_'' + UPPER(REPLACE(r.[Name], '' '', ''_'')), r.[Name], 1, 1
+          FROM [dbo].[Role] r
+          WHERE NOT EXISTS (SELECT 1 FROM [dbo].[Permission] x
+                            WHERE x.[Code] = N''ROL_'' + UPPER(REPLACE(r.[Name], '' '', ''_'')));');
+
+    IF OBJECT_ID('[dbo].[Role_Permission]', 'U') IS NOT NULL
+        EXEC('INSERT INTO [dbo].[Permission_Permission] ([ParentId], [ChildId])
+              SELECT rp_parent.[Id], rp.[PermissionId]
+              FROM [dbo].[Role_Permission] rp
+              JOIN [dbo].[Role] r ON r.[Id] = rp.[RoleId]
+              JOIN [dbo].[Permission] rp_parent ON rp_parent.[Code] = N''ROL_'' + UPPER(REPLACE(r.[Name], '' '', ''_''))
+              WHERE NOT EXISTS (SELECT 1 FROM [dbo].[Permission_Permission] x
+                                WHERE x.[ParentId] = rp_parent.[Id] AND x.[ChildId] = rp.[PermissionId]);');
+
+    IF OBJECT_ID('[dbo].[User_Role]', 'U') IS NOT NULL
+        EXEC('INSERT INTO [dbo].[User_Permission] ([UserId], [PermissionId])
+              SELECT ur.[UserId], p.[Id]
+              FROM [dbo].[User_Role] ur
+              JOIN [dbo].[Role] r ON r.[Id] = ur.[RoleId]
+              JOIN [dbo].[Permission] p ON p.[Code] = N''ROL_'' + UPPER(REPLACE(r.[Name], '' '', ''_''))
+              WHERE NOT EXISTS (SELECT 1 FROM [dbo].[User_Permission] x
+                                WHERE x.[UserId] = ur.[UserId] AND x.[PermissionId] = p.[Id]);');
+
+    IF OBJECT_ID('[dbo].[User_Role]', 'U') IS NOT NULL EXEC('DROP TABLE [dbo].[User_Role];');
+    IF OBJECT_ID('[dbo].[Role_Permission]', 'U') IS NOT NULL EXEC('DROP TABLE [dbo].[Role_Permission];');
+    EXEC('DROP TABLE [dbo].[Role];');
+END
+GO
+
+/* ---------- Seed: catalogo de permisos (hojas y familias no rol) ---------- */
+
+DECLARE @Permissions TABLE ([Code] NVARCHAR(100), [Name] NVARCHAR(100), [IsFamily] BIT);
+INSERT INTO @Permissions ([Code], [Name], [IsFamily]) VALUES
     ('VER_MI_PERFIL',         'Ver mi perfil',            0),
     ('CERRAR_SESION',         'Cerrar sesion',            0),
-    ('VER_INICIO',      'Ver inicio',         0),
+    ('VER_INICIO',            'Ver inicio',               0),
     ('VER_BITACORA',          'Ver bitacora',             0),
     ('GESTIONAR_ROLES',       'Gestion de roles',         0),
     ('ASIGNAR_ROLES_USUARIO', 'Asignar roles a usuarios', 0),
     ('SESION_BASICA',         'Sesion basica',            1);
 
-INSERT INTO [dbo].[Permission] ([Code], [Name], [IsCompound])
-SELECT p.[Code], p.[Name], p.[IsCompound]
+INSERT INTO [dbo].[Permission] ([Code], [Name], [IsFamily], [IsRol])
+SELECT p.[Code], p.[Name], p.[IsFamily], 0
 FROM @Permissions p
 WHERE NOT EXISTS (SELECT 1 FROM [dbo].[Permission] x WHERE x.[Code] = p.[Code]);
 GO
 
-/* ---------- Seed: Composite (compuesto -> hijo) ---------- */
+/* ---------- Seed: Composite (familia -> hijo) ---------- */
 
-DECLARE @Tree TABLE ([ParentCode] NVARCHAR(50), [ChildCode] NVARCHAR(50));
+DECLARE @Tree TABLE ([ParentCode] NVARCHAR(100), [ChildCode] NVARCHAR(100));
 INSERT INTO @Tree ([ParentCode], [ChildCode]) VALUES
     ('SESION_BASICA', 'VER_MI_PERFIL'),
     ('SESION_BASICA', 'CERRAR_SESION');
@@ -132,56 +156,60 @@ WHERE NOT EXISTS (SELECT 1 FROM [dbo].[Permission_Permission] pp
                   WHERE pp.[ParentId] = parent.[Id] AND pp.[ChildId] = child.[Id]);
 GO
 
-/* ---------- Seed: roles y sus permisos ---------- */
+/* ---------- Seed: roles (familias con IsRol = 1) y sus hijos ---------- */
 
-DECLARE @Roles TABLE ([Name] NVARCHAR(50));
-INSERT INTO @Roles ([Name]) VALUES ('invitado'), ('client'), ('moderador'), ('administrador');
+DECLARE @Roles TABLE ([Code] NVARCHAR(100), [Name] NVARCHAR(100));
+INSERT INTO @Roles ([Code], [Name]) VALUES
+    ('ROL_INVITADO',      'invitado'),
+    ('ROL_CLIENT',        'client'),
+    ('ROL_MODERADOR',     'moderador'),
+    ('ROL_ADMINISTRADOR', 'administrador');
 
-INSERT INTO [dbo].[Role] ([Name], [CreatedBy])
-SELECT r.[Name], 'seed'
+INSERT INTO [dbo].[Permission] ([Code], [Name], [IsFamily], [IsRol])
+SELECT r.[Code], r.[Name], 1, 1
 FROM @Roles r
-WHERE NOT EXISTS (SELECT 1 FROM [dbo].[Role] x WHERE x.[Name] = r.[Name]);
+WHERE NOT EXISTS (SELECT 1 FROM [dbo].[Permission] x WHERE x.[Code] = r.[Code]);
 
-DECLARE @RolePermissions TABLE ([RoleName] NVARCHAR(50), [PermissionCode] NVARCHAR(50));
-INSERT INTO @RolePermissions ([RoleName], [PermissionCode]) VALUES
+DECLARE @RolePermissions TABLE ([RoleCode] NVARCHAR(100), [PermissionCode] NVARCHAR(100));
+INSERT INTO @RolePermissions ([RoleCode], [PermissionCode]) VALUES
     -- invitado: solo ver su perfil y cerrar sesion (permiso compuesto)
-    ('invitado',      'SESION_BASICA'),
+    ('ROL_INVITADO',      'SESION_BASICA'),
     -- client: sesion basica + inicio
-    ('client',        'SESION_BASICA'),
-    ('client',        'VER_INICIO'),
+    ('ROL_CLIENT',        'SESION_BASICA'),
+    ('ROL_CLIENT',        'VER_INICIO'),
     -- moderador: lo del client + bitacora
-    ('moderador',     'SESION_BASICA'),
-    ('moderador',     'VER_INICIO'),
-    ('moderador',     'VER_BITACORA'),
+    ('ROL_MODERADOR',     'SESION_BASICA'),
+    ('ROL_MODERADOR',     'VER_INICIO'),
+    ('ROL_MODERADOR',     'VER_BITACORA'),
     -- administrador: lo del moderador + gestion de roles
-    ('administrador', 'SESION_BASICA'),
-    ('administrador', 'VER_INICIO'),
-    ('administrador', 'VER_BITACORA'),
-    ('administrador', 'GESTIONAR_ROLES'),
-    ('administrador', 'ASIGNAR_ROLES_USUARIO');
+    ('ROL_ADMINISTRADOR', 'SESION_BASICA'),
+    ('ROL_ADMINISTRADOR', 'VER_INICIO'),
+    ('ROL_ADMINISTRADOR', 'VER_BITACORA'),
+    ('ROL_ADMINISTRADOR', 'GESTIONAR_ROLES'),
+    ('ROL_ADMINISTRADOR', 'ASIGNAR_ROLES_USUARIO');
 
-INSERT INTO [dbo].[Role_Permission] ([RoleId], [PermissionId])
+INSERT INTO [dbo].[Permission_Permission] ([ParentId], [ChildId])
 SELECT r.[Id], p.[Id]
 FROM @RolePermissions rp
-JOIN [dbo].[Role]       r ON r.[Name] = rp.[RoleName]
+JOIN [dbo].[Permission] r ON r.[Code] = rp.[RoleCode]
 JOIN [dbo].[Permission] p ON p.[Code] = rp.[PermissionCode]
-WHERE NOT EXISTS (SELECT 1 FROM [dbo].[Role_Permission] x
-                  WHERE x.[RoleId] = r.[Id] AND x.[PermissionId] = p.[Id]);
+WHERE NOT EXISTS (SELECT 1 FROM [dbo].[Permission_Permission] x
+                  WHERE x.[ParentId] = r.[Id] AND x.[ChildId] = p.[Id]);
 GO
 
 /* ---------- Seed: el usuario 'admin' (create-user.sh) queda como administrador ---------- */
 
-INSERT INTO [dbo].[User_Role] ([UserId], [RoleId])
+INSERT INTO [dbo].[User_Permission] ([UserId], [PermissionId])
 SELECT u.[Id], r.[Id]
 FROM [dbo].[User] u
-CROSS JOIN [dbo].[Role] r
-WHERE u.[Username] = 'admin' AND r.[Name] = 'administrador'
-  AND NOT EXISTS (SELECT 1 FROM [dbo].[User_Role] x WHERE x.[UserId] = u.[Id] AND x.[RoleId] = r.[Id]);
+CROSS JOIN [dbo].[Permission] r
+WHERE u.[Username] = 'admin' AND r.[Code] = 'ROL_ADMINISTRADOR'
+  AND NOT EXISTS (SELECT 1 FROM [dbo].[User_Permission] x WHERE x.[UserId] = u.[Id] AND x.[PermissionId] = r.[Id]);
 GO
 
-SELECT r.[Name] AS [Rol], p.[Code] AS [Permiso], p.[IsCompound]
-FROM [dbo].[Role_Permission] rp
-JOIN [dbo].[Role]       r ON r.[Id] = rp.[RoleId]
-JOIN [dbo].[Permission] p ON p.[Id] = rp.[PermissionId]
+SELECT r.[Name] AS [Rol], p.[Code] AS [Permiso], p.[IsFamily]
+FROM [dbo].[Permission_Permission] pp
+JOIN [dbo].[Permission] r ON r.[Id] = pp.[ParentId] AND r.[IsRol] = 1
+JOIN [dbo].[Permission] p ON p.[Id] = pp.[ChildId]
 ORDER BY r.[Id], p.[Id];
 GO

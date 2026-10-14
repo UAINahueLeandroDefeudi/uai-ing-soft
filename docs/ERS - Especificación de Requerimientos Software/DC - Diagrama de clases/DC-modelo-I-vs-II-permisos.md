@@ -1,9 +1,14 @@
 # DC - Modelo I vs Modelo II de roles y permisos
 
 El boceto de la cátedra (`Entrega_2/roles_y_permisos_2_formas.jpeg`) propone dos
-formas de modelar roles y permisos. **El proyecto implementa el Modelo II**. Este
-documento deja registrado cómo se diferencian y qué habría que tocar si en algún
-momento se decide migrar al Modelo I.
+formas de modelar roles y permisos. **El proyecto implementa el Modelo I** (se
+migró desde el Modelo II para pasar de 5 tablas a 3 sin perder el Composite). Este
+documento deja registrado cómo se diferencian y qué se tocó en la migración.
+
+En el Modelo I implementado, la clase `Componente` del boceto es `Permission`, la
+`Familia`/rol es `CompoundPermission` y el flag que distingue un rol de una
+familia común es `IsRol`; `IsFamily` distingue hoja de compuesto. Los permisos
+simples (hojas) siguen siendo un catálogo fijo, sin ABM.
 
 ## Modelo I - un solo Componente (Rol = permiso compuesto)
 
@@ -41,7 +46,7 @@ Es el modelo del ejemplo de la cátedra (`Familia`/`Patente`) y de la pantalla d
 referencia: *ROLES (Familias)* y *PERMISOS SIMPLES (Patentes)* en un mismo
 catálogo, con un botón *Crear Rol Anidado* (un rol dentro de otro).
 
-## Modelo II - Rol separado (el implementado)
+## Modelo II - Rol separado (el anterior, descartado)
 
 El rol **no** es parte del Composite. El Composite vive sólo entre permisos
 (simple / compuesto) y el rol los agrega.
@@ -80,7 +85,7 @@ classDiagram
 
 ## Comparación
 
-| Aspecto | Modelo I | Modelo II (implementado) |
+| Aspecto | Modelo I (implementado) | Modelo II (anterior) |
 |---|---|---|
 | Tipos | `Componente` → `Permiso`, `Rol` | `Permission` → `SimplePermission`, `CompoundPermission`; `Role` aparte |
 | ¿Qué es un rol? | Un composite más | Entidad propia que agrega permisos |
@@ -92,26 +97,27 @@ classDiagram
 | Verificación | `usuario.Componentes.Any(c => c.Tiene(x))` | `usuario.Roles.Any(r => r.Grants(x))` (un nivel más) |
 | Riesgo | Se puede asignar un permiso suelto a un usuario y se pierde el concepto de rol | Más tablas y una clase más |
 
-## Cómo migrar al Modelo I (si hiciera falta)
+## Qué se cambió en la migración al Modelo I
 
-1. **Entidades (BE)**: eliminar `Role` y hacer que `CompoundPermission` represente
-   también al rol (por ejemplo con una propiedad `IsRole`). `User.Roles` pasa a
-   ser `User.Permissions : List<Permission>` y `User.HasPermission` itera sobre ella.
-2. **SQL**: `Role` y `Role_Permission` desaparecen; los roles pasan a ser filas de
-   `[Permission]` con `IsCompound = 1` (+ flag `IsRole`) y sus permisos a
-   `[Permission_Permission]`. `[User_Role]` se reemplaza por `[User_Permission]`
-   (`UserId`, `PermissionId`) con FK a `[Permission]`. El seed se reescribe con
-   los mismos datos.
-3. **DAL**: `RoleDAL` se reduce a consultas sobre `[Permission]` filtrando `IsRole`;
-   `PermissionDAL.FillChildren` ya arma árboles de cualquier profundidad, por lo
-   que no cambia.
-4. **BLL**: `RoleBLL` conserva sus operaciones pero opera sobre `CompoundPermission`.
-   Aparece la validación de ciclos también para roles (rol anidado), que ya
-   existe en `CompoundPermission.Add`.
-5. **UI**: `FrmRoleManagement` ya tiene los tres árboles; se agrega el botón
-   *Crear Rol Anidado* y *Quitar Permiso de Rol* pasa a *Quitar de Rol* (sirve
-   para permisos y roles). `MostrarRecursivo` no cambia.
-6. **Tests**: `HasPermission` y `Flatten` siguen valiendo; se agregan casos de rol anidado.
+1. **Entidades (BE)**: se eliminó `Role` y `RoleMapper`. `Permission` ganó `IsRol`
+   y `IsCompound` pasó a llamarse `IsFamily`. `User.Roles` pasó a
+   `User.Permissions : List<Permission>` (`User.Roles` queda como vista de los
+   que tienen `IsRol`) y `HasPermission` itera sobre ella.
+2. **SQL** (`04_init_create_roles_permission.sql`): `Role`, `Role_Permission` y
+   `User_Role` desaparecen; los roles son filas de `[Permission]` con
+   `IsFamily = 1` e `IsRol = 1` (`Code = ROL_<NOMBRE>`), sus hijos van a
+   `[Permission_Permission]` y `[User_Role]` se reemplaza por `[User_Permission]`.
+   El script migra una base del Modelo II sin perder datos.
+3. **DAL**: `RoleDAL` consulta `[Permission]` filtrando `IsRol`;
+   `PermissionDAL.FillChildren` no cambió. `RoleDAL.Delete` sólo borra filas con
+   `IsRol = 1`: las hojas no tienen ABM.
+4. **BLL**: `RoleBLL` conserva sus operaciones pero opera sobre `Permission`;
+   rechaza lo que no sea rol (`msg.role.notRole`) y valida ciclos de rol anidado
+   (`msg.role.cycle`).
+5. **UI**: `FrmRoleManagement` usa `Permission` con `IsRol` como rol; un rol del
+   catálogo se puede asignar a otro rol con *Asignar Permiso a Rol* (rol anidado).
+6. **Tests**: `HasPermission`, `Flatten` y la BLL siguen valiendo; se agregaron
+   casos de rol anidado, ciclo, borrado de hoja y asignación de no-rol.
 
 ## Diagramas relacionados
 

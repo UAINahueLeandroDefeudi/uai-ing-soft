@@ -17,11 +17,23 @@ namespace BE.Entity
         public string Tabla { get; set; } = string.Empty;
         public string Clave { get; set; } = string.Empty;
         public TipoErrorIntegridad Tipo { get; set; }
+
+        /// <summary>Fecha propia del registro (EventAt) cuando la tabla la tiene; el registro es anterior a la alteración.</summary>
+        public DateTime? FechaRegistro { get; set; }
+
+        /// <summary>
+        /// Última vez que la aplicación recalculó el DVV de la tabla (escritura legítima): la alteración
+        /// ocurrió después de esa fecha. null si no se pudo leer.
+        /// </summary>
+        public DateTime? UltimoCalculoValido { get; set; }
     }
 
     /// <summary>Diagnóstico de la verificación de integridad al iniciar la aplicación.</summary>
     public class ResultadoIntegridad
     {
+        /// <summary>Momento en que se hizo la verificación (la alteración se detectó a esta hora).</summary>
+        public DateTime FechaVerificacion { get; set; } = DateTime.Now;
+
         public List<ErrorIntegridad> Errores { get; } = new();
 
         public bool EsValido => Errores.Count == 0;

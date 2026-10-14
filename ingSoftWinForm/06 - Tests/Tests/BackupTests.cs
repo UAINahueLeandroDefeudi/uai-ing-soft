@@ -57,7 +57,8 @@ namespace Tests
         public BackupTests()
         {
             if (SessionManager.IsLoggedIn()) SessionManager.Logout();
-            SessionManager.Login(UserWith("admin", RoleWith(RoleName.Administrador, 1)));
+            SessionManager.Login(UserWith("admin", RoleWith(RoleName.Administrador, 1,
+                Simple(PermissionCode.GestionarBackup), Simple(PermissionCode.RealizarBackup))));
             IntegridadManager.Establecer(null);
 
             // Mismo contenido en ambas: el backup es "al día".
@@ -221,6 +222,152 @@ namespace Tests
             Assert.Equal("msg.generic.error", resultado.MessageKey);
             Assert.Empty(backupDAL.Restaurados);
             Assert.NotEmpty(bitacora.Registros);
+        }
+
+        // ---- Detalle de diferencias contra el backup ----
+
+        [Fact]
+        public void FilaBorradaFueraDeLaApp_SeInformaComoSoloEnBackup()
+        {
+            actual.Tablas[Historia.Tabla].RemoveAt(2);
+            var ruta = backupDAL.Agregar("IF_DB_20261001_120000.bkp", FechaBackup, enBackup);
+
+            var validacion = Armar().Validar(ruta);
+
+            var dif = Assert.Single(validacion.Diferencias);
+            Assert.Equal(TipoDiferencia.SoloEnBackup, dif.Tipo);
+            Assert.Equal(Historia.Tabla, dif.Tabla);
+            Assert.Equal("Id-3", dif.Clave);
+            Assert.Equal(1, validacion.Perdidas.Single().FilasQueSeRecuperan);
+            Assert.False(validacion.HayPerdida);
+        }
+
+        [Fact]
+        public void FilaModificadaFueraDeLaApp_InformaColumnaYValores()
+        {
+            actual.Tablas[Historia.Tabla][1]["Detail"] = "alterado";
+            var ruta = backupDAL.Agregar("IF_DB_20261001_120000.bkp", FechaBackup, enBackup);
+
+            var validacion = Armar().Validar(ruta);
+
+            var dif = Assert.Single(validacion.Diferencias);
+            Assert.Equal(TipoDiferencia.Modificada, dif.Tipo);
+            Assert.Equal("Id-2", dif.Clave);
+            Assert.True(dif.FilaActualAdulterada);
+            var cambio = Assert.Single(dif.Cambios);
+            Assert.Equal("Detail", cambio.Columna);
+            Assert.Equal("alterado", cambio.ValorActual);
+            Assert.Equal("Detail-2", cambio.ValorBackup);
+        }
+
+        [Fact]
+        public void FilaModificadaLegitimamente_NoSeMarcaComoAdulterada()
+        {
+            actual.Tablas[Historia.Tabla][1]["Detail"] = "cambio posterior";
+            actual.Tablas[Historia.Tabla][1]["DVH"] = new DigitoVerificador().CalcularDVH(Historia, actual.Tablas[Historia.Tabla][1]);
+            actual.RecalcularDVV(Historia);
+            var ruta = backupDAL.Agregar("IF_DB_20261001_120000.bkp", FechaBackup, enBackup);
+
+            var dif = Assert.Single(Armar().Validar(ruta).Diferencias);
+
+            Assert.False(dif.FilaActualAdulterada);
+        }
+
+        [Fact]
+        public void AltaExterna_SeInformaComoSoloEnActualYAdulterada()
+        {
+            var intrusa = Historia.Atributos.ToDictionary(a => a, a => (object?)$"{a}-externo");
+            intrusa["DVH"] = null;
+            actual.Tablas[Historia.Tabla].Add(intrusa);
+            var ruta = backupDAL.Agregar("IF_DB_20261001_120000.bkp", FechaBackup, enBackup);
+
+            var dif = Assert.Single(Armar().Validar(ruta).Diferencias);
+
+            Assert.Equal(TipoDiferencia.SoloEnActual, dif.Tipo);
+            Assert.Equal("Id-externo", dif.Clave);
+            Assert.True(dif.FilaActualAdulterada);
+        }
+
+        [Fact]
+        public void DiferenciaConFecha_InformaElMomentoDelRegistro()
+        {
+            var fecha = new DateTime(2026, 9, 30, 22, 15, 0);
+            var fila = actual.Tablas[Historia.Tabla][0];
+            fila["EventAt"] = fecha;
+            fila["Detail"] = "alterado";
+            var ruta = backupDAL.Agregar("IF_DB_20261001_120000.bkp", FechaBackup, enBackup);
+
+            var dif = Assert.Single(Armar().Validar(ruta).Diferencias);
+
+            Assert.Equal(fecha, dif.FechaRegistro);
+        }
+
+        [Fact]
+        public void BackupIdentico_NoTieneDiferencias()
+        {
+            var ruta = backupDAL.Agregar("IF_DB_20261001_120000.bkp", FechaBackup, enBackup);
+
+            var validacion = Armar().Validar(ruta);
+
+            Assert.Empty(validacion.Diferencias);
+            Assert.Empty(validacion.Perdidas);
+        }
+
+        [Fact]
+        public void ConPermiso_GeneraBackup()
+        {
+            var resultado = Armar().GenerarBackup();
+
+            Assert.True(resultado.Success);
+        }
+
+        [Fact]
+        public void BaseCorrupta_NoGeneraBackup()
+        {
+            actual.Tablas[Historia.Tabla].RemoveAt(2);
+
+            var resultado = Armar().GenerarBackup();
+
+            Assert.False(resultado.Success);
+            Assert.Equal("msg.backup.baseCorrupta", resultado.MessageKey);
+        }
+
+        [Fact]
+        public void AlteracionPosteriorALaVerificacionDeArranque_NoGeneraBackup()
+        {
+            // El resultado de arranque dice "íntegra", pero la base se alteró después: se reverifica.
+            IntegridadManager.Establecer(new ResultadoIntegridad());
+            actual.Tablas[Historia.Tabla][0]["Detail"] = "alterado";
+
+            var resultado = Armar().GenerarBackup();
+
+            Assert.Equal("msg.backup.baseCorrupta", resultado.MessageKey);
+            Assert.True(IntegridadManager.HayProblemas);
+        }
+
+        [Fact]
+        public void SinRealizarBackup_NoGeneraAunqueGestione()
+        {
+            SessionManager.Logout();
+            SessionManager.Login(UserWith("gestor", RoleWith("gestor", 3, Simple(PermissionCode.GestionarBackup))));
+
+            var resultado = Armar().GenerarBackup();
+
+            Assert.Equal("msg.noPermiso", resultado.MessageKey);
+            Assert.NotEmpty(bitacora.Registros);
+        }
+
+        [Fact]
+        public void SinGestionarBackup_NoRestauraAunqueRealice()
+        {
+            SessionManager.Logout();
+            SessionManager.Login(UserWith("operador", RoleWith("operador", 4, Simple(PermissionCode.RealizarBackup))));
+            var ruta = backupDAL.Agregar("IF_DB_20261001_120000.bkp", FechaBackup, enBackup);
+
+            var resultado = Armar().Restaurar(ruta);
+
+            Assert.Equal("msg.noPermiso", resultado.MessageKey);
+            Assert.Empty(backupDAL.Restaurados);
         }
 
         [Fact]

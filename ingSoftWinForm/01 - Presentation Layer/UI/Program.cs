@@ -14,14 +14,15 @@ namespace UI
             // see https://aka.ms/applicationconfiguration.
             ApplicationConfiguration.Initialize();
 
-            // T07: antes del login se verifica la integridad de la base. No bloquea acá:
-            // el resultado se aplica en el login según el rol (administrador / resto).
-            new BLL.IntegridadBLL().Verificar();
-
             // CU-01: sin sesión iniciada no se entra al menú principal.
             // Al cerrar sesión se vuelve al login; cualquier otra salida (Salir, cancelar el login) termina la app.
             while (true)
             {
+                // T07: antes de cada login se verifica la integridad de la base (también tras un cierre
+                // de sesión: la base pudo alterarse con la app abierta). No bloquea acá:
+                // el resultado se aplica en el login según los permisos de backup.
+                new BLL.IntegridadBLL().Verificar();
+
                 using (var login = new FrmLogin())
                 {
                     if (login.ShowDialog() != DialogResult.OK) return;

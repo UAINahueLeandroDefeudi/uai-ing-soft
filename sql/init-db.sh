@@ -118,6 +118,10 @@ run_file "06_create_table_UserHistory.sql" >/dev/null
 echo "Digitos verificadores: creando lo que falte ..."
 run_file "07_create_digitos_verificadores.sql" >/dev/null
 
+# Permisos de backup (T07): idempotente. Van despues de 04 porque cuelgan de ROL_ADMINISTRADOR.
+echo "Permisos de backup: sembrando GESTIONAR_BACKUP y REALIZAR_BACKUP ..."
+run_file "10_seed_permisos_backup.sql" >/dev/null
+
 # Etiquetas de idioma de la alerta de integridad y del backup.
 run_file "09_seed_etiquetas_integridad.sql" >/dev/null
 

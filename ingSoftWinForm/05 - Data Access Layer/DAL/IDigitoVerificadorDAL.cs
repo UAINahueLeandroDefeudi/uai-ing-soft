@@ -12,5 +12,8 @@ namespace DAL
 
         /// <summary>DVV guardado en [DigitoVerificador]; null si la tabla no tiene control.</summary>
         string? LeerDVV(string tabla);
+
+        /// <summary>Última vez que se recalculó el DVV de la tabla (escritura legítima); null si no consta.</summary>
+        DateTime? LeerFechaCalculo(string tabla);
     }
 }

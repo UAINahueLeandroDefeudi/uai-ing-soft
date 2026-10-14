@@ -42,6 +42,14 @@ namespace DAL
             return dbHelper.ExecuteScalar(query, CommandType.Text, parameters) as string;
         }
 
+        public DateTime? LeerFechaCalculo(string tabla)
+        {
+            const string query = "SELECT FechaCalculo FROM [DigitoVerificador] WHERE Tabla = @Tabla";
+            SqlParameter[] parameters = [new SqlParameter("@Tabla", tabla)];
+
+            return dbHelper.ExecuteScalar(query, CommandType.Text, parameters) as DateTime?;
+        }
+
         /// <summary>
         /// Corre <paramref name="escritura"/> en una transacción y después, en la misma,
         /// recalcula el DVH de las filas que devolvió y el DVV de las tablas tocadas.
@@ -53,16 +61,57 @@ namespace DAL
         {
             dbHelper.ExecuteTransaction((connection, transaction) =>
             {
+                // Una tabla que ya no coincide con su DVV fue adulterada fuera de la app. Recalcular el DVV
+                // sobre lo que haya la daría por válida y taparía la alteración: se deja como está.
+                var adulteradas = EntidadesVerificables.Todas
+                    .Where(e => EstaAdulterada(connection, transaction, e))
+                    .Select(e => e.Tabla)
+                    .ToHashSet();
+
                 var tocadas = escritura(connection, transaction).ToList();
 
                 foreach (var (entidad, clave) in tocadas.Where(t => t.Clave != null))
                     RefrescarDVH(connection, transaction, entidad, clave!);
 
-                foreach (var entidad in tocadas.Select(t => t.Entidad).Distinct())
+                foreach (var entidad in tocadas.Select(t => t.Entidad).Distinct()
+                             .Where(e => !adulteradas.Contains(e.Tabla)))
                     RecalcularDVV(connection, transaction, entidad);
 
                 return 0;
             });
+        }
+
+        /// <summary>true si el DVV guardado no coincide con el calculado sobre las filas actuales (tabla vacía sin DVV: no).</summary>
+        private bool EstaAdulterada(SqlConnection connection, SqlTransaction transaction, EntidadVerificable entidad)
+        {
+            var filas = LeerClavesYDVH(connection, transaction, entidad);
+
+            string? almacenado;
+            using (var select = new SqlCommand("SELECT DVV FROM [DigitoVerificador] WHERE Tabla = @Tabla", connection, transaction))
+            {
+                select.Parameters.AddWithValue("@Tabla", entidad.Tabla);
+                almacenado = select.ExecuteScalar() as string;
+            }
+
+            return calculador.EstaAdulterada(entidad.Tabla, almacenado, filas);
+        }
+
+        private List<(string Clave, string? DVH)> LeerClavesYDVH(
+            SqlConnection connection, SqlTransaction transaction, EntidadVerificable entidad)
+        {
+            var columnas = string.Join(", ", entidad.Clave.Append("DVH").Select(c => $"[{c}]"));
+            var filas = new List<(string Clave, string? DVH)>();
+
+            using var select = new SqlCommand($"SELECT {columnas} FROM [{entidad.Tabla}]", connection, transaction);
+            using var reader = select.ExecuteReader();
+            while (reader.Read())
+            {
+                var fila = Enumerable.Range(0, reader.FieldCount)
+                    .ToDictionary(i => reader.GetName(i), i => reader.IsDBNull(i) ? null : reader.GetValue(i));
+                filas.Add((calculador.ClaveTexto(entidad, fila), fila["DVH"] as string));
+            }
+
+            return filas;
         }
 
         private void RefrescarDVH(SqlConnection connection, SqlTransaction transaction,
@@ -93,19 +142,7 @@ namespace DAL
         /// <summary>DVV sobre los DVH almacenados: una alta externa (DVH null) o una baja lo cambian.</summary>
         private void RecalcularDVV(SqlConnection connection, SqlTransaction transaction, EntidadVerificable entidad)
         {
-            var columnas = string.Join(", ", entidad.Clave.Append("DVH").Select(c => $"[{c}]"));
-            var filas = new List<(string Clave, string? DVH)>();
-
-            using (var select = new SqlCommand($"SELECT {columnas} FROM [{entidad.Tabla}]", connection, transaction))
-            using (var reader = select.ExecuteReader())
-            {
-                while (reader.Read())
-                {
-                    var fila = Enumerable.Range(0, reader.FieldCount)
-                        .ToDictionary(i => reader.GetName(i), i => reader.IsDBNull(i) ? null : reader.GetValue(i));
-                    filas.Add((calculador.ClaveTexto(entidad, fila), fila["DVH"] as string));
-                }
-            }
+            var filas = LeerClavesYDVH(connection, transaction, entidad);
 
             const string merge = @"
                 MERGE [DigitoVerificador] AS t

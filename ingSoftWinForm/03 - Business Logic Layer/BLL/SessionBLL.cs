@@ -18,21 +18,26 @@ namespace BLL
         private readonly BitacoraBLL bitacoraBLL;
         private readonly IRoleDAL roleDAL;
         private readonly IUserHistoryDAL? historyDAL;
+        private readonly IntegridadBLL? integridadBLL;
 
-        public SessionBLL() : this(new UserDAL(), new BitacoraBLL(), new RoleDAL(), new UserHistoryDAL()) { }
+        public SessionBLL() : this(new UserDAL(), new BitacoraBLL(), new RoleDAL(), new UserHistoryDAL(), new IntegridadBLL()) { }
 
         public SessionBLL(IUserDAL userDAL) : this(userDAL, new BitacoraBLL(), new RoleDAL()) { }
 
         public SessionBLL(IUserDAL userDAL, BitacoraBLL bitacoraBLL) : this(userDAL, bitacoraBLL, new RoleDAL()) { }
 
-        /// <summary>historyDAL null = sin historial (tests con fakes no tocan la BD).</summary>
+        /// <summary>
+        /// historyDAL null = sin historial (tests con fakes no tocan la BD).
+        /// integridadBLL null = se usa el último resultado de <see cref="IntegridadManager"/> sin reverificar.
+        /// </summary>
         public SessionBLL(IUserDAL userDAL, BitacoraBLL bitacoraBLL, IRoleDAL roleDAL,
-            IUserHistoryDAL? historyDAL = null)
+            IUserHistoryDAL? historyDAL = null, IntegridadBLL? integridadBLL = null)
         {
             this.userDAL = userDAL;
             this.bitacoraBLL = bitacoraBLL;
             this.roleDAL = roleDAL;
             this.historyDAL = historyDAL;
+            this.integridadBLL = integridadBLL;
         }
 
         public LoginResult Login(string username, string password)
@@ -82,11 +87,15 @@ namespace BLL
             // así la bitácora y el menú ya los ven. HasPermission los recorre recursivamente.
             user.Permissions = roleDAL.GetByUser(user.Id);
 
-            // T07: con la integridad comprometida solo el administrador entra (para ver el
+            // T07: la base pudo alterarse después de la verificación de arranque (p. ej. con la ventana de
+            // login abierta): se verifica de nuevo justo antes de decidir si se abre la sesión.
+            ReverificarIntegridad();
+
+            // T07: con la integridad comprometida solo entra quien puede gestionar backups (para ver el
             // diagnóstico y restaurar). El resto recibe un error genérico y no se revela el motivo.
             if (IntegridadManager.HayProblemas)
             {
-                if (!BackupBLL.EsAdministrador(user))
+                if (!BackupBLL.PuedeGestionarBackup(user))
                 {
                     bitacoraBLL.RegistrarError(NameEvent.ErrorIntegridad,
                         "Inicio de sesión rechazado: la verificación de integridad de la base falló",
@@ -97,7 +106,7 @@ namespace BLL
                 }
 
                 bitacoraBLL.RegistrarError(NameEvent.ErrorIntegridad,
-                    $"Administrador ingresa con la integridad de la base comprometida ({IntegridadManager.Resultado!.Errores.Count} errores)",
+                    $"Usuario con permiso de backup ingresa con la integridad de la base comprometida ({IntegridadManager.Resultado!.Errores.Count} errores)",
                     Priority.Critical, user);
             }
 
@@ -121,6 +130,21 @@ namespace BLL
             RegistrarHistorial(user, "Login", true, null, failedAttempts: 0);
 
             return LoginResult.Ok(user);
+        }
+
+        /// <summary>Si la verificación en sí falla (BD caída) se conserva el último resultado: el login ya falla por su cuenta.</summary>
+        private void ReverificarIntegridad()
+        {
+            if (integridadBLL == null) return;
+
+            try
+            {
+                integridadBLL.Verificar();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Integridad: no se pudo reverificar al iniciar sesión: {ex.Message}");
+            }
         }
 
         public void Logout()

@@ -11,6 +11,10 @@ namespace BE.Entity
         /// <summary>Filas que existen en ambos pero con otro contenido (DVH distinto).</summary>
         public int FilasModificadas { get; set; }
 
+        /// <summary>Filas que están en el backup y hoy faltan (se recuperarían al restaurar).</summary>
+        public int FilasQueSeRecuperan { get; set; }
+
+        /// <summary>Cambios de la base actual que se perderían (no incluye lo que se recupera).</summary>
         public int Total => FilasQueSePierden + FilasModificadas;
     }
 
@@ -29,6 +33,9 @@ namespace BE.Entity
         public DateTime? UltimoCambioActual { get; set; }
 
         public List<PerdidaTabla> Perdidas { get; } = new();
+
+        /// <summary>Detalle fila por fila (y columna por columna) de lo que difiere de la base actual.</summary>
+        public List<DiferenciaBackup> Diferencias { get; } = new();
 
         /// <summary>Los cambios hechos desde esta fecha no están en el backup.</summary>
         public DateTime PerdidaDesde => FechaBackup;

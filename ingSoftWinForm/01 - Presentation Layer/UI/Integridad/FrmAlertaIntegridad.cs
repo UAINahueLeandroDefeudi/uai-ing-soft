@@ -6,39 +6,43 @@ using UI.Idiomas;
 namespace UI.Integridad
 {
     /// <summary>
-    /// T07: alerta para el administrador cuando la verificación de integridad falló al arrancar.
-    /// Muestra tabla, registro y tipo de falla, y permite restaurar manualmente un backup
-    /// (&lt;NombreBD&gt;_yyyyMMdd_HHmmss.bkp). Construido por código; el Name de cada control
-    /// es la clave de traducción "FrmAlertaIntegridad.&lt;Name&gt;".
+    /// T07: diagnóstico de integridad para quien gestiona backups. Muestra tabla, registro, tipo de falla
+    /// y fechas de lo que falló, y permite elegir un backup (&lt;NombreBD&gt;_yyyyMMdd_HHmmss.bkp) para
+    /// compararlo con la base actual fila por fila y columna por columna antes de restaurarlo.
+    /// Construido por código; el Name de cada control es la clave "FrmAlertaIntegridad.&lt;Name&gt;".
     /// </summary>
     public class FrmAlertaIntegridad : FrmTraducible
     {
+        private const int MaxValor = 120;
+
         private readonly BackupBLL backupBLL = new();
-        private readonly Label lblAviso = new() { Name = "lblAviso", Dock = DockStyle.Top, Height = 48, Padding = new Padding(8) };
-        private readonly ListView lvErrores = new() { Name = "lvErrores", Dock = DockStyle.Fill, View = View.Details, FullRowSelect = true };
+        private readonly Label lblAviso = new() { Name = "lblAviso", Dock = DockStyle.Top, Height = 40, Padding = new Padding(8) };
+        private readonly ListView lvErrores = new() { Name = "lvErrores", Dock = DockStyle.Top, Height = 150, View = View.Details, FullRowSelect = true, GridLines = true };
+        private readonly Label lblDetalle = new() { Name = "lblDetalle", Dock = DockStyle.Top, Height = 36, Padding = new Padding(8, 8, 8, 0) };
+        private readonly ListView lvDiferencias = new() { Name = "lvDiferencias", Dock = DockStyle.Fill, View = View.Details, FullRowSelect = true, GridLines = true };
         private readonly Panel pnlBackup = new() { Dock = DockStyle.Bottom, Height = 44, Padding = new Padding(8) };
-        private readonly ComboBox cboBackups = new() { Name = "cboBackups", DropDownStyle = ComboBoxStyle.DropDownList, Width = 380, Left = 8, Top = 10 };
-        private readonly Button btnRestaurar = new() { Name = "btnRestaurar", Left = 400, Top = 8, Width = 130 };
-        private readonly Button btnBackup = new() { Name = "btnBackup", Left = 536, Top = 8, Width = 130 };
+        private readonly ComboBox cboBackups = new() { Name = "cboBackups", DropDownStyle = ComboBoxStyle.DropDownList, Width = 420, Left = 8, Top = 10 };
+        private readonly Button btnComparar = new() { Name = "btnComparar", Left = 438, Top = 8, Width = 150 };
+        private readonly Button btnRestaurar = new() { Name = "btnRestaurar", Left = 594, Top = 8, Width = 150 };
 
         public FrmAlertaIntegridad()
         {
             Text = "Integridad de la base de datos";
-            Width = 720;
-            Height = 420;
+            Width = 1000;
+            Height = 640;
             StartPosition = FormStartPosition.CenterParent;
 
-            lvErrores.Columns.Add("Tabla", 160);
-            lvErrores.Columns.Add("Registro", 220);
-            lvErrores.Columns.Add("Falla", 260);
-
             lblAviso.Text = "La verificación de integridad detectó diferencias en la base de datos.";
+            btnComparar.Text = "Comparar con backup";
             btnRestaurar.Text = "Restaurar backup";
-            btnBackup.Text = "Generar backup";
+            btnComparar.Click += BtnComparar_Click;
             btnRestaurar.Click += BtnRestaurar_Click;
-            btnBackup.Click += BtnBackup_Click;
 
-            pnlBackup.Controls.AddRange([cboBackups, btnRestaurar, btnBackup]);
+            pnlBackup.Controls.AddRange([cboBackups, btnComparar, btnRestaurar]);
+
+            // El último agregado se acopla primero: Fill va antes que los acoplados arriba y abajo.
+            Controls.Add(lvDiferencias);
+            Controls.Add(lblDetalle);
             Controls.Add(lvErrores);
             Controls.Add(pnlBackup);
             Controls.Add(lblAviso);
@@ -54,18 +58,24 @@ namespace UI.Integridad
 
         private void Refrescar()
         {
-            lblAviso.Text = T("FrmAlertaIntegridad.aviso");
+            var resultado = IntegridadManager.Resultado;
+            lblAviso.Text = T(IntegridadManager.HayProblemas ? "FrmAlertaIntegridad.aviso" : "FrmAlertaIntegridad.avisoOk");
+            lblDetalle.Text = T("FrmAlertaIntegridad.detalleAyuda");
+
+            ArmarColumnas();
 
             lvErrores.Items.Clear();
-            var errores = IntegridadManager.Resultado?.Errores ?? [];
-            foreach (var error in errores)
+            var detectado = resultado?.FechaVerificacion.ToString("G") ?? "-";
+            foreach (var error in resultado?.Errores ?? [])
             {
-                var falla = T($"FrmAlertaIntegridad.tipo.{error.Tipo}");
-                lvErrores.Items.Add(new ListViewItem([error.Tabla, error.Clave, falla]));
+                lvErrores.Items.Add(new ListViewItem([
+                    error.Tabla,
+                    error.Clave,
+                    T($"FrmAlertaIntegridad.tipo.{error.Tipo}"),
+                    Fecha(error.FechaRegistro),
+                    Fecha(error.UltimoCalculoValido),
+                    detectado]));
             }
-
-            // Solo con la base verificada tiene sentido generar un backup nuevo.
-            btnBackup.Enabled = !IntegridadManager.HayProblemas;
 
             try
             {
@@ -78,24 +88,120 @@ namespace UI.Integridad
                 cboBackups.DataSource = null;
             }
 
-            btnRestaurar.Enabled = cboBackups.Items.Count > 0;
+            // ListarBackups ya devuelve vacío sin GESTIONAR_BACKUP.
+            btnRestaurar.Enabled = btnComparar.Enabled = cboBackups.Items.Count > 0;
+        }
+
+        private void ArmarColumnas()
+        {
+            lvErrores.Columns.Clear();
+            lvErrores.Columns.Add(T("FrmAlertaIntegridad.col.tabla"), 130);
+            lvErrores.Columns.Add(T("FrmAlertaIntegridad.col.registro"), 170);
+            lvErrores.Columns.Add(T("FrmAlertaIntegridad.col.falla"), 260);
+            lvErrores.Columns.Add(T("FrmAlertaIntegridad.col.fechaRegistro"), 120);
+            lvErrores.Columns.Add(T("FrmAlertaIntegridad.col.ultimaEscrituraValida"), 150);
+            lvErrores.Columns.Add(T("FrmAlertaIntegridad.col.detectado"), 120);
+
+            lvDiferencias.Columns.Clear();
+            lvDiferencias.Columns.Add(T("FrmAlertaIntegridad.col.tabla"), 110);
+            lvDiferencias.Columns.Add(T("FrmAlertaIntegridad.col.registro"), 120);
+            lvDiferencias.Columns.Add(T("FrmAlertaIntegridad.col.diferencia"), 170);
+            lvDiferencias.Columns.Add(T("FrmAlertaIntegridad.col.columna"), 100);
+            lvDiferencias.Columns.Add(T("FrmAlertaIntegridad.col.valorActual"), 170);
+            lvDiferencias.Columns.Add(T("FrmAlertaIntegridad.col.valorBackup"), 170);
+            lvDiferencias.Columns.Add(T("FrmAlertaIntegridad.col.fechaRegistro"), 120);
+            lvDiferencias.Columns.Add(T("FrmAlertaIntegridad.col.estado"), 160);
+        }
+
+        private static string Fecha(DateTime? fecha) => fecha?.ToString("G") ?? "-";
+
+        private static string Recortar(string? valor)
+            => valor == null ? "(null)" : valor.Length > MaxValor ? valor[..MaxValor] + "…" : valor;
+
+        /// <summary>Analiza el backup (sin tocar la base) y vuelca el detalle; null si no se pudo.</summary>
+        private ResultadoValidacionBackup? Analizar(string archivo)
+        {
+            UseWaitCursor = true;
+            ResultadoValidacionBackup validacion;
+            try
+            {
+                validacion = backupBLL.Validar(archivo);
+            }
+            finally
+            {
+                UseWaitCursor = false;
+            }
+
+            MostrarDiferencias(validacion);
+
+            if (validacion.ErrorKey == null) return validacion;
+
+            MessageBox.Show(this, T(OperationResult.Fail(validacion.ErrorKey)), T("FrmAlertaIntegridad.Title"),
+                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return null;
+        }
+
+        private void MostrarDiferencias(ResultadoValidacionBackup validacion)
+        {
+            lvDiferencias.Items.Clear();
+            if (validacion.ErrorKey != null) return;
+
+            // Un backup que no pasa la verificación: se muestra qué le falla a él.
+            foreach (var error in validacion.Integridad.Errores)
+            {
+                lvDiferencias.Items.Add(new ListViewItem([
+                    error.Tabla, error.Clave, T("FrmAlertaIntegridad.dif.BackupAlterado"),
+                    "-", "-", T($"FrmAlertaIntegridad.tipo.{error.Tipo}"), Fecha(error.FechaRegistro), "-"])
+                { ForeColor = Color.DarkRed });
+            }
+
+            foreach (var dif in validacion.Diferencias)
+            {
+                var tipo = T($"FrmAlertaIntegridad.dif.{dif.Tipo}");
+                var estado = dif.FilaActualAdulterada ? T("FrmAlertaIntegridad.estado.adulterada") : "-";
+
+                if (dif.Cambios.Count == 0)
+                {
+                    lvDiferencias.Items.Add(Fila(dif, tipo, "-", "-", "-", estado));
+                    continue;
+                }
+
+                foreach (var cambio in dif.Cambios)
+                    lvDiferencias.Items.Add(Fila(dif, tipo, cambio.Columna,
+                        Recortar(cambio.ValorActual), Recortar(cambio.ValorBackup), estado));
+            }
+        }
+
+        private static ListViewItem Fila(DiferenciaBackup dif, string tipo, string columna,
+            string actual, string backup, string estado)
+        {
+            var item = new ListViewItem([dif.Tabla, dif.Clave, tipo, columna, actual, backup, Fecha(dif.FechaRegistro), estado]);
+            if (dif.FilaActualAdulterada) item.ForeColor = Color.DarkRed;
+            return item;
+        }
+
+        private void BtnComparar_Click(object? sender, EventArgs e)
+        {
+            if (cboBackups.SelectedItem is not string archivo) return;
+
+            var validacion = Analizar(archivo);
+            if (validacion == null) return;
+
+            var resumen = !validacion.Integridad.EsValido
+                ? T("msg.backup.invalido")
+                : validacion.Diferencias.Count == 0
+                    ? T("FrmAlertaIntegridad.sinDiferencias")
+                    : T("FrmAlertaIntegridad.resumen", validacion.Diferencias.Count, validacion.FechaBackup.ToString("G"));
+            lblDetalle.Text = resumen;
         }
 
         private void BtnRestaurar_Click(object? sender, EventArgs e)
         {
             if (cboBackups.SelectedItem is not string archivo) return;
 
-            // Se analiza el backup antes de tocar la base: integridad y cambios que se perderían.
-            UseWaitCursor = true;
-            var validacion = backupBLL.Validar(archivo);
-            UseWaitCursor = false;
-
-            if (validacion.ErrorKey != null)
-            {
-                MessageBox.Show(this, T(OperationResult.Fail(validacion.ErrorKey)), T("FrmAlertaIntegridad.Title"),
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
+            // Se analiza el backup antes de tocar la base: integridad y diferencias, con detalle en pantalla.
+            var validacion = Analizar(archivo);
+            if (validacion == null) return;
 
             if (!validacion.Integridad.EsValido)
             {
@@ -108,7 +214,7 @@ namespace UI.Integridad
             if (validacion.HayPerdida)
             {
                 var detalle = string.Join(Environment.NewLine,
-                    validacion.Perdidas.Select(p => $"- {p.Tabla}: {p.Total}"));
+                    validacion.Perdidas.Where(p => p.Total > 0).Select(p => $"- {p.Tabla}: {p.Total}"));
                 var ultimo = validacion.UltimoCambioActual?.ToString("g") ?? "-";
 
                 var sigue = MessageBox.Show(this,
@@ -134,15 +240,7 @@ namespace UI.Integridad
             MessageBox.Show(this, T(resultado), T("FrmAlertaIntegridad.Title"),
                 MessageBoxButtons.OK, resultado.Success ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
 
-            Refrescar();
-        }
-
-        private void BtnBackup_Click(object? sender, EventArgs e)
-        {
-            var resultado = backupBLL.GenerarBackup();
-            MessageBox.Show(this, T(resultado), T("FrmAlertaIntegridad.Title"),
-                MessageBoxButtons.OK, resultado.Success ? MessageBoxIcon.Information : MessageBoxIcon.Warning);
-
+            lvDiferencias.Items.Clear();
             Refrescar();
         }
     }

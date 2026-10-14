@@ -6,8 +6,8 @@ using Services;
 namespace BLL
 {
     /// <summary>
-    /// T07: recuperación manual. Solo un administrador con sesión abierta puede generar
-    /// o restaurar un backup; la restauración no es automática ni parte del arranque.
+    /// T07: recuperación manual. Generar un backup exige REALIZAR_BACKUP y
+    /// restaurar/validar exige GESTIONAR_BACKUP, siempre con sesión abierta; la restauración no es automática ni parte del arranque.
     /// </summary>
     public class BackupBLL
     {
@@ -28,16 +28,23 @@ namespace BLL
             this.actualDAL = actualDAL;
         }
 
-        public static bool EsAdministrador(User? user)
-            => user != null && user.Roles.Any(p =>
-                string.Equals(p.Name, RoleName.Administrador, StringComparison.OrdinalIgnoreCase));
+        /// <summary>Restaurar y listar backups, y entrar con la integridad comprometida.</summary>
+        public static bool PuedeGestionarBackup(User? user)
+            => user != null && user.HasPermission(PermissionCode.GestionarBackup);
+
+        public static bool PuedeRealizarBackup(User? user)
+            => user != null && user.HasPermission(PermissionCode.RealizarBackup);
+
+        private static User? UsuarioActual => SessionManager.IsLoggedIn() ? SessionManager.GetInstance.User : null;
 
         /// <summary>Genera &lt;NombreBD&gt;_yyyyMMdd_HHmmss.bkp. Solo con la base verificada: un backup corrupto no sirve.</summary>
         public OperationResult GenerarBackup()
         {
-            return Ejecutar(NameEvent.GenerarBackup, () =>
+            return Ejecutar(NameEvent.GenerarBackup, PermissionCode.RealizarBackup, () =>
             {
-                if (IntegridadManager.HayProblemas)
+                // Se verifica en este momento: el resultado de arranque puede estar viejo y un backup
+                // de una base alterada nunca debe generarse.
+                if (integridadBLL.Verificar().Errores.Count > 0)
                     return OperationResult.Fail("msg.backup.baseCorrupta");
 
                 var carpeta = backupDAL.CarpetaBackups;
@@ -54,6 +61,8 @@ namespace BLL
         /// <summary>Backups de la carpeta configurada, el más reciente primero.</summary>
         public List<string> ListarBackups()
         {
+            if (!PuedeGestionarBackup(UsuarioActual)) return [];
+
             var carpeta = backupDAL.CarpetaBackups;
             if (!Directory.Exists(carpeta)) return [];
 
@@ -71,10 +80,10 @@ namespace BLL
         /// </summary>
         public ResultadoValidacionBackup Validar(string rutaArchivo)
         {
-            if (!EsAdministrador(SessionManager.IsLoggedIn() ? SessionManager.GetInstance.User : null))
+            if (!PuedeGestionarBackup(UsuarioActual))
             {
                 bitacoraBLL.RegistrarError(NameEvent.AccesoNoAutorizado,
-                    "Intento de validar backup sin ser administrador", Priority.High);
+                    "Intento de validar backup sin permiso para gestionar backups", Priority.High);
                 return new ResultadoValidacionBackup { ErrorKey = "msg.noPermiso" };
             }
 
@@ -110,27 +119,111 @@ namespace BLL
                 foreach (var entidad in integridadBLL.Entidades)
                 {
                     var enBackup = backupLector.LeerFilas(entidad)
-                        .ToDictionary(f => calculador.ClaveTexto(entidad, f), f => f["DVH"] as string);
+                        .ToDictionary(f => calculador.ClaveTexto(entidad, f));
                     var actuales = actualDAL.LeerFilas(entidad);
+                    var clavesActuales = new HashSet<string>(StringComparer.Ordinal);
 
                     var perdida = new PerdidaTabla { Tabla = entidad.Tabla };
                     foreach (var fila in actuales)
                     {
-                        if (!enBackup.TryGetValue(calculador.ClaveTexto(entidad, fila), out var dvhBackup))
-                            perdida.FilasQueSePierden++;
-                        else if (!string.Equals(dvhBackup, fila["DVH"] as string, StringComparison.Ordinal))
-                            perdida.FilasModificadas++;
+                        var clave = calculador.ClaveTexto(entidad, fila);
+                        clavesActuales.Add(clave);
+                        var adulterada = !string.Equals(fila["DVH"] as string, calculador.CalcularDVH(entidad, fila),
+                            StringComparison.OrdinalIgnoreCase);
 
-                        if (fila.TryGetValue("EventAt", out var fecha) && fecha is DateTime evento
-                            && (validacion.UltimoCambioActual == null || evento > validacion.UltimoCambioActual))
-                            validacion.UltimoCambioActual = evento;
+                        if (!enBackup.TryGetValue(clave, out var filaBackup))
+                        {
+                            perdida.FilasQueSePierden++;
+                            validacion.Diferencias.Add(new DiferenciaBackup
+                            {
+                                Tabla = entidad.Tabla,
+                                Clave = clave,
+                                Tipo = TipoDiferencia.SoloEnActual,
+                                FechaRegistro = FechaDe(fila),
+                                FilaActualAdulterada = adulterada
+                            });
+                        }
+                        else
+                        {
+                            var dvhDistinto = !string.Equals(filaBackup["DVH"] as string, fila["DVH"] as string,
+                                StringComparison.Ordinal);
+                            if (dvhDistinto) perdida.FilasModificadas++;
+
+                            // Una fila alterada sin tocar su DVH tiene el mismo DVH que el backup: igual se informa.
+                            var cambios = CambiosEntre(entidad, fila, filaBackup);
+                            if (dvhDistinto || adulterada || cambios.Count > 0)
+                                validacion.Diferencias.Add(Modificada(entidad, clave, fila, filaBackup, cambios, adulterada));
+                        }
+
+                        var fecha = FechaDe(fila);
+                        if (fecha != null && (validacion.UltimoCambioActual == null || fecha > validacion.UltimoCambioActual))
+                            validacion.UltimoCambioActual = fecha;
                     }
 
-                    if (perdida.Total > 0) validacion.Perdidas.Add(perdida);
+                    // Lo que el backup tiene y la base actual no: típicamente un borrado hecho fuera de la aplicación.
+                    foreach (var (clave, filaBackup) in enBackup.Where(p => !clavesActuales.Contains(p.Key)))
+                    {
+                        perdida.FilasQueSeRecuperan++;
+                        validacion.Diferencias.Add(new DiferenciaBackup
+                        {
+                            Tabla = entidad.Tabla,
+                            Clave = clave,
+                            Tipo = TipoDiferencia.SoloEnBackup,
+                            FechaRegistro = FechaDe(filaBackup)
+                        });
+                    }
+
+                    if (perdida.Total > 0 || perdida.FilasQueSeRecuperan > 0) validacion.Perdidas.Add(perdida);
                 }
 
                 return validacion;
             });
+        }
+
+        private static DateTime? FechaDe(IReadOnlyDictionary<string, object?> fila)
+            => fila.TryGetValue("EventAt", out var fecha) && fecha is DateTime evento ? evento : null;
+
+        /// <summary>Detalle columna por columna; si ninguna difiere, lo que cambió es el propio DVH.</summary>
+        private static List<CambioColumna> CambiosEntre(EntidadVerificable entidad,
+            Dictionary<string, object?> actual, Dictionary<string, object?> backup)
+        {
+            var cambios = new List<CambioColumna>();
+
+            foreach (var columna in entidad.Atributos)
+            {
+                var valorActual = DigitoVerificador.Texto(actual.GetValueOrDefault(columna));
+                var valorBackup = DigitoVerificador.Texto(backup.GetValueOrDefault(columna));
+                if (string.Equals(valorActual, valorBackup, StringComparison.Ordinal)) continue;
+
+                cambios.Add(new CambioColumna { Columna = columna, ValorActual = valorActual, ValorBackup = valorBackup });
+            }
+
+            return cambios;
+        }
+
+        private static DiferenciaBackup Modificada(EntidadVerificable entidad, string clave,
+            Dictionary<string, object?> actual, Dictionary<string, object?> backup,
+            List<CambioColumna> cambios, bool adulterada)
+        {
+            var diferencia = new DiferenciaBackup
+            {
+                Tabla = entidad.Tabla,
+                Clave = clave,
+                Tipo = TipoDiferencia.Modificada,
+                FechaRegistro = FechaDe(actual) ?? FechaDe(backup),
+                FilaActualAdulterada = adulterada
+            };
+            diferencia.Cambios.AddRange(cambios);
+
+            if (diferencia.Cambios.Count == 0)
+                diferencia.Cambios.Add(new CambioColumna
+                {
+                    Columna = "DVH",
+                    ValorActual = actual.GetValueOrDefault("DVH") as string,
+                    ValorBackup = backup.GetValueOrDefault("DVH") as string
+                });
+
+            return diferencia;
         }
 
         /// <summary>
@@ -140,7 +233,7 @@ namespace BLL
         /// </summary>
         public OperationResult Restaurar(string rutaArchivo, bool aceptaPerdida = false)
         {
-            return Ejecutar(NameEvent.RestaurarBackup, () =>
+            return Ejecutar(NameEvent.RestaurarBackup, PermissionCode.GestionarBackup, () =>
             {
                 var validacion = ValidarInterno(rutaArchivo);
                 if (validacion.ErrorKey != null)
@@ -174,12 +267,12 @@ namespace BLL
             });
         }
 
-        private OperationResult Ejecutar(NameEvent evento, Func<OperationResult> accion)
+        private OperationResult Ejecutar(NameEvent evento, string permiso, Func<OperationResult> accion)
         {
-            if (!EsAdministrador(SessionManager.IsLoggedIn() ? SessionManager.GetInstance.User : null))
+            if (UsuarioActual?.HasPermission(permiso) != true)
             {
                 bitacoraBLL.RegistrarError(NameEvent.AccesoNoAutorizado,
-                    $"Intento de {evento} sin ser administrador", Priority.High);
+                    $"Intento de {evento} sin el permiso {permiso}", Priority.High);
                 return OperationResult.Fail("msg.noPermiso");
             }
 

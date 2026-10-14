@@ -138,6 +138,7 @@ dotnet test "ingSoftWinForm/06 - Tests/Tests/Tests.csproj"
 | `03_create_table_Bitacora.sql` | Crea `[Bitacora]` si falta | No |
 | `04_init_create_roles_permission.sql` | Crea las tablas de roles/permisos si faltan y siembra el catálogo | No (idempotente) |
 | `05_create_idiomas.sql` | Crea `Idioma`, `Etiqueta`, `Traduccion` y `[User].IdIdioma` si faltan; siembra es/en (en incompleto) y el permiso `GESTIONAR_IDIOMAS`. Requiere `-f 65001` (UTF-8) | No (idempotente) |
+| `10_seed_permisos_backup.sql` | Siembra `GESTIONAR_BACKUP` y `REALIZAR_BACKUP` y los asigna al rol administrador | No (idempotente) |
 
 ---
 
@@ -819,7 +820,11 @@ quedó descartado por requerir 5 tablas en lugar de 3.
 | `invitado` | `SESION_BASICA` (compuesto: `VER_MI_PERFIL` + `CERRAR_SESION`) |
 | `client` | `SESION_BASICA` + `VER_INICIO` |
 | `moderador` | lo del `client` + `VER_BITACORA` |
-| `administrador` | lo del `moderador` + `GESTIONAR_ROLES` + `ASIGNAR_ROLES_USUARIO` |
+| `administrador` | lo del `moderador` + `GESTIONAR_ROLES` + `ASIGNAR_ROLES_USUARIO` + `GESTIONAR_IDIOMAS` + `GESTIONAR_BACKUP` + `REALIZAR_BACKUP` |
+
+`REALIZAR_BACKUP` habilita el menú *Backup* (`FrmBackup`, modal: espera a que termine y avisa éxito o falla; con la base corrupta no permite generar). `GESTIONAR_BACKUP` habilita restaurar/validar backups y es lo que permite entrar con la integridad comprometida. Se siembran con `sql/10_seed_permisos_backup.sql`.
+
+Integridad (T07): se verifica antes de cada login. Una escritura legítima nunca recalcula el DVV de una tabla que ya no coincide con él, así que una baja o alteración externa no se "lava". `FrmAlertaIntegridad` lista tabla, registro, falla, fecha del registro y última escritura válida de la tabla; al elegir un backup y compararlo muestra fila por fila y columna por columna qué difiere (solo en la base actual, solo en el backup, modificada) y marca en rojo las filas alteradas fuera de la aplicación.
 
 Los códigos están como constantes en `BE.Entity.PermissionCode`; el rol que recibe todo
 registro, en `RoleName.Invitado`.

@@ -26,11 +26,18 @@ namespace UI
         private readonly ToolStripMenuItem mnuIdioma = new() { Name = "mnuIdioma" };
         private readonly ToolStripMenuItem mnuIdiomas = new() { Name = "mnuIdiomas" };
         private readonly ToolStripSeparator sepIdioma = new() { Name = "sepIdioma" };
+        private readonly ToolStripMenuItem mnuBackup = new() { Name = "mnuBackup", Text = "&Backup" };
+
+        // T07: verificación periódica de la integridad con la sesión abierta.
+        private readonly System.Windows.Forms.Timer timerIntegridad = new() { Interval = 30_000 };
+        private string? firmaAvisada;
 
         public FrmMain()
         {
             InitializeComponent();
             sessionBLL = new SessionBLL();
+            mnuBackup.Click += MnuBackup_Click;
+            menuStrip.Items.Insert(menuStrip.Items.Count - 1, mnuBackup);
             ArmarMenuIdioma();
             MostrarUsuarioEnSesion();
             AplicarPermisos();
@@ -45,9 +52,57 @@ namespace UI
             if (sessionBLL.HasPermission(PermissionCode.VerMiPerfil))
                 AbrirHijo<FrmProfile>();
 
-            // T07: el administrador que entra con la integridad comprometida ve el diagnóstico.
-            if (Services.IntegridadManager.HayProblemas && BackupBLL.EsAdministrador(sessionBLL.CurrentUser))
+            // T07: quien gestiona backups y entra con la integridad comprometida ve el diagnóstico.
+            if (Services.IntegridadManager.HayProblemas && BackupBLL.PuedeGestionarBackup(sessionBLL.CurrentUser))
+            {
+                firmaAvisada = FirmaIntegridad();
                 AbrirHijo<FrmAlertaIntegridad>();
+            }
+
+            // T07: la base puede alterarse con la sesión abierta: se vuelve a verificar cada tanto.
+            timerIntegridad.Tick += TimerIntegridad_Tick;
+            timerIntegridad.Start();
+        }
+
+        protected override void OnFormClosed(FormClosedEventArgs e)
+        {
+            timerIntegridad.Stop();
+            timerIntegridad.Dispose();
+            base.OnFormClosed(e);
+        }
+
+        /// <summary>Identifica el conjunto actual de fallas para avisar una sola vez por cada cambio.</summary>
+        private static string FirmaIntegridad()
+            => string.Join(';', (Services.IntegridadManager.Resultado?.Errores ?? [])
+                .Select(e => $"{e.Tabla}|{e.Clave}|{e.Tipo}").OrderBy(s => s, StringComparer.Ordinal));
+
+        private async void TimerIntegridad_Tick(object? sender, EventArgs e)
+        {
+            // Evita solapar verificaciones y no molesta a quien no puede actuar sobre el problema.
+            timerIntegridad.Stop();
+            try
+            {
+                if (!BackupBLL.PuedeGestionarBackup(sessionBLL.CurrentUser)) return;
+
+                await Task.Run(() => new IntegridadBLL().Verificar());
+                if (IsDisposed || !Services.IntegridadManager.HayProblemas) { firmaAvisada = null; return; }
+
+                var firma = FirmaIntegridad();
+                if (firma == firmaAvisada) return;
+
+                firmaAvisada = firma;
+                AbrirHijo<FrmAlertaIntegridad>();
+                MessageBox.Show(this, T("FrmMain.integridadComprometida"), T("FrmAlertaIntegridad.Title"),
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(ex);
+            }
+            finally
+            {
+                if (!IsDisposed) timerIntegridad.Start();
+            }
         }
 
         /// <summary>
@@ -64,6 +119,9 @@ namespace UI
             mnuRoles.Visible = sessionBLL.HasPermission(PermissionCode.GestionarRoles)
                             || sessionBLL.HasPermission(PermissionCode.AsignarRolesUsuario);
             mnuCerrarSesion.Visible = sessionBLL.HasPermission(PermissionCode.CerrarSesion);
+
+            // T07: forzar un backup exige REALIZAR_BACKUP; la BLL vuelve a validarlo.
+            mnuBackup.Visible = sessionBLL.HasPermission(PermissionCode.RealizarBackup);
 
             // T05: cambiar de idioma es libre; administrarlos exige el permiso.
             var gestionaIdiomas = sessionBLL.HasPermission(PermissionCode.GestionarIdiomas);
@@ -176,6 +234,12 @@ namespace UI
         private void MnuEvent_Click(object sender, EventArgs e) => AbrirHijo<FrmEvent>();
 
         private void MnuRoles_Click(object sender, EventArgs e) => AbrirHijo<FrmRoleManagement>();
+
+        private void MnuBackup_Click(object? sender, EventArgs e)
+        {
+            using var backup = new FrmBackup();
+            backup.ShowDialog(this);
+        }
 
         private void MnuCerrarSesion_Click(object sender, EventArgs e)
         {

@@ -85,11 +85,45 @@ namespace BLL
                 Calculado = calculador.CalcularDVV(entidad.Tabla, dvhs.Select(d => (d.Clave, d.Almacenado)))
             };
 
-            foreach (var dvh in dvhs.Where(d => !d.EsValido))
-                resultado.Errores.Add(new ErrorIntegridad { Tabla = entidad.Tabla, Clave = dvh.Clave, Tipo = TipoErrorIntegridad.DVH });
+            var dvhInvalidos = dvhs.Where(d => !d.EsValido).ToList();
+            if (dvhInvalidos.Count == 0 && calculador.VerificarIntegridadDVV([dvv])) return;
+
+            // Hay una falla: se reúne el detalle disponible (fecha de la fila y último cálculo legítimo del DVV).
+            var ultimoCalculo = LeerFechaCalculo(dal, entidad.Tabla);
+
+            var fechas = new Dictionary<string, DateTime?>();
+            for (var i = 0; i < filas.Count; i++)
+                if (filas[i].TryGetValue("EventAt", out var fecha) && fecha is DateTime evento)
+                    fechas[dvhs[i].Clave] = evento;
+
+            foreach (var dvh in dvhInvalidos)
+                resultado.Errores.Add(new ErrorIntegridad
+                {
+                    Tabla = entidad.Tabla,
+                    Clave = dvh.Clave,
+                    Tipo = TipoErrorIntegridad.DVH,
+                    FechaRegistro = fechas.GetValueOrDefault(dvh.Clave),
+                    UltimoCalculoValido = ultimoCalculo
+                });
 
             if (!calculador.VerificarIntegridadDVV([dvv]))
-                resultado.Errores.Add(new ErrorIntegridad { Tabla = entidad.Tabla, Tipo = TipoErrorIntegridad.DVV });
+                resultado.Errores.Add(new ErrorIntegridad
+                {
+                    Tabla = entidad.Tabla,
+                    Tipo = TipoErrorIntegridad.DVV,
+                    UltimoCalculoValido = ultimoCalculo
+                });
+        }
+
+        /// <summary>El detalle es accesorio: si no se puede leer, la falla se informa igual.</summary>
+        private static DateTime? LeerFechaCalculo(IDigitoVerificadorDAL dal, string tabla)
+        {
+            try { return dal.LeerFechaCalculo(tabla); }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(ex);
+                return null;
+            }
         }
     }
 }

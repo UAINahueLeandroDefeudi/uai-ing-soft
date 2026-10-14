@@ -51,6 +51,22 @@ namespace Services
         /// <summary>true si todos los DVV almacenados coinciden con los recalculados.</summary>
         public bool VerificarIntegridadDVV(List<DVV> dvvs) => dvvs.All(d => d.EsValido);
 
+        /// <summary>
+        /// true si el DVV almacenado no corresponde a las filas actuales: la tabla se alteró fuera de la
+        /// aplicación. Una tabla vacía sin DVV no cuenta. Quien escribe NO debe recalcular el DVV de una
+        /// tabla en este estado: lo daría por válido y taparía la alteración.
+        /// </summary>
+        public bool EstaAdulterada(string tabla, string? dvvAlmacenado, IEnumerable<(string Clave, string? DVH)> filas)
+        {
+            var lista = filas.ToList();
+            if (dvvAlmacenado == null && lista.Count == 0) return false;
+
+            return !string.Equals(dvvAlmacenado, CalcularDVV(tabla, lista), StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>Valor de una columna tal como entra al cálculo (para mostrarlo y compararlo).</summary>
+        public static string? Texto(object? valor) => Formatear(valor);
+
         private static string? Formatear(object? valor) => valor switch
         {
             null => null,

@@ -26,6 +26,10 @@ namespace BE.Enum
         ActualizarTraduccion = 18,
         ErrorIntegridad = 19,
         GenerarBackup = 20,
-        RestaurarBackup = 21
+        RestaurarBackup = 21,
+        CrearProducto = 22,
+        ModificarProducto = 23,
+        BajaProducto = 24,
+        RestaurarVersionProducto = 25
     }
 }

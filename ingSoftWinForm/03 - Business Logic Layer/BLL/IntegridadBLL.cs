@@ -93,8 +93,8 @@ namespace BLL
 
             var fechas = new Dictionary<string, DateTime?>();
             for (var i = 0; i < filas.Count; i++)
-                if (filas[i].TryGetValue("EventAt", out var fecha) && fecha is DateTime evento)
-                    fechas[dvhs[i].Clave] = evento;
+                if (entidad.FechaDe(filas[i]) is { } fecha)
+                    fechas[dvhs[i].Clave] = fecha;
 
             foreach (var dvh in dvhInvalidos)
                 resultado.Errores.Add(new ErrorIntegridad

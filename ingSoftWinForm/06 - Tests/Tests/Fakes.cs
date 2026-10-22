@@ -148,6 +148,76 @@ namespace Tests
         public void SetUserIdioma(Guid userId, int idIdioma) => IdiomaPorUsuario[userId] = idIdioma;
     }
 
+    /// <summary>T06b: productos en memoria; como la DAL real, cada escritura copia la fila completa al historial.</summary>
+    public class FakeProductoDAL : IProductoDAL
+    {
+        private int ultimoId;
+
+        public List<Producto> Productos { get; } = new();
+        public List<ProductoHistorial> Historial { get; } = new();
+
+        /// <summary>Simula que otro usuario guardó una versión después de que se leyó el producto.</summary>
+        public bool SimularCambioConcurrente { get; set; }
+
+        public List<Producto> GetAll() => Productos.Select(Copia).ToList();
+        public Producto? GetById(int id) => Productos.Where(p => p.Id == id).Select(Copia).FirstOrDefault();
+        public Producto? GetByCodigo(string codigo) => Productos.Where(p => p.Codigo == codigo).Select(Copia).FirstOrDefault();
+
+        public List<ProductoHistorial> GetHistorial(int productoId)
+            => Historial.Where(h => h.ProductoId == productoId).OrderByDescending(h => h.Version).ToList();
+
+        public void Insert(Producto producto, Guid eventBy)
+        {
+            producto.Id = ++ultimoId;
+            producto.Version = 1;
+            producto.FechaModificacion = DateTime.Now;
+            Productos.Add(Copia(producto));
+            Registrar(producto, OperacionProducto.Alta, eventBy);
+        }
+
+        public bool Update(Producto producto, OperacionProducto operacion, Guid eventBy)
+        {
+            var guardado = Productos.Single(p => p.Id == producto.Id);
+            if (SimularCambioConcurrente || guardado.Version != producto.Version) return false;
+
+            producto.Version++;
+            producto.FechaModificacion = DateTime.Now;
+            Productos[Productos.IndexOf(guardado)] = Copia(producto);
+            Registrar(producto, operacion, eventBy);
+            return true;
+        }
+
+        private void Registrar(Producto p, OperacionProducto operacion, Guid eventBy)
+            => Historial.Add(new ProductoHistorial
+            {
+                Id = Historial.Count + 1,
+                ProductoId = p.Id,
+                Version = p.Version,
+                Codigo = p.Codigo,
+                Nombre = p.Nombre,
+                Descripcion = p.Descripcion,
+                Precio = p.Precio,
+                Stock = p.Stock,
+                Activo = p.Activo,
+                Operacion = operacion,
+                EventAt = p.FechaModificacion,
+                EventBy = eventBy
+            });
+
+        private static Producto Copia(Producto p) => new()
+        {
+            Id = p.Id,
+            Codigo = p.Codigo,
+            Nombre = p.Nombre,
+            Descripcion = p.Descripcion,
+            Precio = p.Precio,
+            Stock = p.Stock,
+            Activo = p.Activo,
+            Version = p.Version,
+            FechaModificacion = p.FechaModificacion
+        };
+    }
+
     /// <summary>Suscriptor de prueba: guarda cada idioma que le notifican.</summary>
     public class SuscriberEspia : ISuscriberIdioma
     {

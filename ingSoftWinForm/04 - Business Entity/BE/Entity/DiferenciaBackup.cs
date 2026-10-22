@@ -36,7 +36,7 @@ namespace BE.Entity
         /// <summary>Columnas con distinto valor (solo para <see cref="TipoDiferencia.Modificada"/>).</summary>
         public List<CambioColumna> Cambios { get; } = new();
 
-        /// <summary>Fecha del registro (EventAt) del lado que la tenga; null si la tabla no la guarda.</summary>
+        /// <summary>Fecha del registro (ColumnaFecha de la entidad) del lado que la tenga; null si la tabla no la guarda.</summary>
         public DateTime? FechaRegistro { get; set; }
 
         /// <summary>La fila actual no coincide con su propio DVH: es la fila adulterada fuera de la aplicación.</summary>

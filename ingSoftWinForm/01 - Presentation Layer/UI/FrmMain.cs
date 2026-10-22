@@ -5,6 +5,7 @@ using UI.Integridad;
 using UI.Idiomas;
 using UI.Inicio;
 using UI.Login;
+using UI.Productos;
 using UI.Profile;
 using UI.Roles;
 
@@ -27,6 +28,7 @@ namespace UI
         private readonly ToolStripMenuItem mnuIdiomas = new() { Name = "mnuIdiomas" };
         private readonly ToolStripSeparator sepIdioma = new() { Name = "sepIdioma" };
         private readonly ToolStripMenuItem mnuBackup = new() { Name = "mnuBackup", Text = "&Backup" };
+        private readonly ToolStripMenuItem mnuProductos = new() { Name = "mnuProductos", Text = "&Productos" };
 
         // T07: verificación periódica de la integridad con la sesión abierta.
         private readonly System.Windows.Forms.Timer timerIntegridad = new() { Interval = 30_000 };
@@ -36,6 +38,8 @@ namespace UI
         {
             InitializeComponent();
             sessionBLL = new SessionBLL();
+            mnuProductos.Click += MnuProductos_Click;
+            menuStrip.Items.Insert(menuStrip.Items.Count - 1, mnuProductos);
             mnuBackup.Click += MnuBackup_Click;
             menuStrip.Items.Insert(menuStrip.Items.Count - 1, mnuBackup);
             ArmarMenuIdioma();
@@ -122,6 +126,9 @@ namespace UI
 
             // T07: forzar un backup exige REALIZAR_BACKUP; la BLL vuelve a validarlo.
             mnuBackup.Visible = sessionBLL.HasPermission(PermissionCode.RealizarBackup);
+
+            // T06b: ABM de productos con su historial de cambios.
+            mnuProductos.Visible = sessionBLL.HasPermission(PermissionCode.GestionarProductos);
 
             // T05: cambiar de idioma es libre; administrarlos exige el permiso.
             var gestionaIdiomas = sessionBLL.HasPermission(PermissionCode.GestionarIdiomas);
@@ -234,6 +241,8 @@ namespace UI
         private void MnuEvent_Click(object sender, EventArgs e) => AbrirHijo<FrmEvent>();
 
         private void MnuRoles_Click(object sender, EventArgs e) => AbrirHijo<FrmRoleManagement>();
+
+        private void MnuProductos_Click(object? sender, EventArgs e) => AbrirHijo<FrmProductos>();
 
         private void MnuBackup_Click(object? sender, EventArgs e)
         {

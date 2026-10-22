@@ -216,7 +216,7 @@ namespace Tests
                 for (var i = 1; i <= 3; i++) dal.AltaLegitima(entidad, i);
             var bll = new IntegridadBLL(dal, EntidadesVerificables.Todas);
 
-            var afectada = EntidadesVerificables.UserHistory;
+            var afectada = EntidadesVerificables.Producto;
             dal.Tablas[afectada.Tabla][0][afectada.Atributos.Last()] = "alterado";
 
             var errores = bll.Verificar().Errores;
@@ -251,9 +251,9 @@ namespace Tests
         [Fact]
         public void Verificar_NoModificaLosDigitos()
         {
-            var entidad = EntidadesVerificables.UserHistory;
+            var entidad = EntidadesVerificables.Producto;
             var (bll, dal) = Armar(entidad);
-            dal.Tablas[entidad.Tabla][0]["Detail"] = "alterado";
+            dal.Tablas[entidad.Tabla][0]["Nombre"] = "alterado";
             var dvhAntes = dal.Tablas[entidad.Tabla].Select(f => f["DVH"]).ToList();
             var dvvAntes = dal.DVVs[entidad.Tabla];
 
@@ -269,9 +269,9 @@ namespace Tests
         [Fact]
         public void BorradoDeLaUltimaFila_LuegoDeUnaEscrituraLegitima_SigueDetectado()
         {
-            // Caso reportado: se borra la última fila de UserHistory fuera de la app y después el propio
-            // login/logout inserta una fila. La inserción no puede recalcular el DVV sobre lo que quedó.
-            var entidad = EntidadesVerificables.UserHistory;
+            // Caso reportado: se borra la última fila de Producto fuera de la app y después el propio
+            // ABM inserta una fila. La inserción no puede recalcular el DVV sobre lo que quedó.
+            var entidad = EntidadesVerificables.Producto;
             var (bll, dal) = Armar(entidad);
             dal.Tablas[entidad.Tabla].RemoveAt(2);
 
@@ -286,7 +286,7 @@ namespace Tests
         [Fact]
         public void AltaExternaPrevia_LuegoDeUnaEscrituraLegitima_SigueDetectada()
         {
-            var entidad = EntidadesVerificables.UserHistory;
+            var entidad = EntidadesVerificables.Producto;
             var (bll, dal) = Armar(entidad);
             var intrusa = entidad.Atributos.ToDictionary(a => a, a => (object?)$"{a}-externo");
             intrusa["DVH"] = null;
@@ -302,7 +302,7 @@ namespace Tests
         [Fact]
         public void EscriturasLegitimas_SobreTablaIntegra_NoGeneranFalsosPositivos()
         {
-            var entidad = EntidadesVerificables.UserHistory;
+            var entidad = EntidadesVerificables.Producto;
             var (bll, dal) = Armar(entidad);
 
             for (var i = 10; i < 15; i++) dal.AltaLegitima(entidad, i);
@@ -329,7 +329,7 @@ namespace Tests
         [Fact]
         public void EstaAdulterada_CoincideConLoQueVerificaIntegridad()
         {
-            var entidad = EntidadesVerificables.UserHistory;
+            var entidad = EntidadesVerificables.Producto;
             var (_, dal) = Armar(entidad);
             var calculador = new DigitoVerificador();
             (string Clave, string? DVH)[] Filas() => dal.Tablas[entidad.Tabla]
@@ -347,7 +347,7 @@ namespace Tests
         [Fact]
         public void ErrorDVV_InformaCuandoSeEscribioLegitimamentePorUltimaVez()
         {
-            var entidad = EntidadesVerificables.UserHistory;
+            var entidad = EntidadesVerificables.Producto;
             var (bll, dal) = Armar(entidad);
             var ultima = new DateTime(2026, 10, 1, 9, 30, 0);
             dal.FechasCalculo[entidad.Tabla] = ultima;
@@ -362,13 +362,13 @@ namespace Tests
         [Fact]
         public void ErrorDVH_InformaLaFilaYLaFechaDelRegistro()
         {
-            var entidad = EntidadesVerificables.UserHistory;
+            var entidad = EntidadesVerificables.Producto;
             var (bll, dal) = Armar(entidad);
             var fecha = new DateTime(2026, 9, 20, 18, 5, 0);
-            dal.Tablas[entidad.Tabla][1]["EventAt"] = fecha;
+            dal.Tablas[entidad.Tabla][1][entidad.ColumnaFecha!] = fecha;
             dal.Tablas[entidad.Tabla][1]["DVH"] = new DigitoVerificador().CalcularDVH(entidad, dal.Tablas[entidad.Tabla][1]);
             dal.RecalcularDVV(entidad);
-            dal.Tablas[entidad.Tabla][1]["Detail"] = "alterado";
+            dal.Tablas[entidad.Tabla][1]["Nombre"] = "alterado";
 
             var error = bll.Verificar().Errores.Single(e => e.Tipo == TipoErrorIntegridad.DVH);
 
@@ -380,7 +380,7 @@ namespace Tests
         [Fact]
         public void Resultado_InformaCuandoSeDetecto()
         {
-            var entidad = EntidadesVerificables.UserHistory;
+            var entidad = EntidadesVerificables.Producto;
             var (bll, _) = Armar(entidad);
             var antes = DateTime.Now;
 
@@ -444,7 +444,7 @@ namespace Tests
 
             var resultado = new ResultadoIntegridad();
             if (!integridadOk)
-                resultado.Errores.Add(new ErrorIntegridad { Tabla = "UserHistory", Clave = "1", Tipo = TipoErrorIntegridad.DVH });
+                resultado.Errores.Add(new ErrorIntegridad { Tabla = "Producto", Clave = "1", Tipo = TipoErrorIntegridad.DVH });
             IntegridadManager.Establecer(resultado);
 
             return new SessionBLL(userDAL, new BitacoraBLL(new FakeBitacoraDAL()), roleDAL);

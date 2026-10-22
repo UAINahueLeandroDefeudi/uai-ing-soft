@@ -18,7 +18,7 @@ namespace BE.Entity
         public string Clave { get; set; } = string.Empty;
         public TipoErrorIntegridad Tipo { get; set; }
 
-        /// <summary>Fecha propia del registro (EventAt) cuando la tabla la tiene; el registro es anterior a la alteración.</summary>
+        /// <summary>Fecha propia del registro (ColumnaFecha de la entidad) cuando la tabla la tiene; el registro es anterior a la alteración.</summary>
         public DateTime? FechaRegistro { get; set; }
 
         /// <summary>

@@ -1,9 +1,9 @@
 /* ============================================================
    T07 - Digitos verificadores
-   Base: IF_DB   (ejecutar despues de 06_create_table_UserHistory.sql)
+   Base: IF_DB   (ejecutar despues de 06_create_table_Producto.sql)
 
    - Columna [DVH] (SHA-256 en hexadecimal, 64 caracteres) en cada tabla verificable:
-     [UserHistory] y [User_Permission].
+     [Producto], [Producto_Historial] y [User_Permission].
    - Tabla [DigitoVerificador]: una fila por tabla verificable con su DVV.
 
    Para proteger una tabla nueva: agregarle [DVH] CHAR(64) NULL aca, sumar su
@@ -22,8 +22,12 @@ SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
 
-IF COL_LENGTH('[dbo].[UserHistory]', 'DVH') IS NULL
-    ALTER TABLE [dbo].[UserHistory] ADD [DVH] CHAR(64) NULL;
+IF COL_LENGTH('[dbo].[Producto]', 'DVH') IS NULL
+    ALTER TABLE [dbo].[Producto] ADD [DVH] CHAR(64) NULL;
+GO
+
+IF COL_LENGTH('[dbo].[Producto_Historial]', 'DVH') IS NULL
+    ALTER TABLE [dbo].[Producto_Historial] ADD [DVH] CHAR(64) NULL;
 GO
 
 IF COL_LENGTH('[dbo].[User_Permission]', 'DVH') IS NULL

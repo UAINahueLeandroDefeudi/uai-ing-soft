@@ -46,7 +46,7 @@ namespace Tests
     [Collection("Session")]
     public class BackupTests : IDisposable
     {
-        private static readonly EntidadVerificable Historia = EntidadesVerificables.UserHistory;
+        private static readonly EntidadVerificable Entidad = EntidadesVerificables.Producto;
         private static readonly DateTime FechaBackup = new(2026, 10, 1, 12, 0, 0);
 
         private readonly FakeBackupDAL backupDAL = new();
@@ -64,8 +64,8 @@ namespace Tests
             // Mismo contenido en ambas: el backup es "al día".
             for (var i = 1; i <= 3; i++)
             {
-                actual.AltaLegitima(Historia, i);
-                enBackup.AltaLegitima(Historia, i);
+                actual.AltaLegitima(Entidad, i);
+                enBackup.AltaLegitima(Entidad, i);
             }
         }
 
@@ -78,7 +78,7 @@ namespace Tests
 
         private BackupBLL Armar()
         {
-            var integridad = new IntegridadBLL(actual, [Historia]);
+            var integridad = new IntegridadBLL(actual, [Entidad]);
             return new BackupBLL(backupDAL, new BitacoraBLL(bitacora), integridad, actual);
         }
 
@@ -96,7 +96,7 @@ namespace Tests
         [Fact]
         public void BackupConFilaModificada_NoSeRestaura()
         {
-            enBackup.Tablas[Historia.Tabla][0]["Detail"] = "alterado";
+            enBackup.Tablas[Entidad.Tabla][0]["Nombre"] = "alterado";
             var ruta = backupDAL.Agregar("IF_DB_20261001_120000.bkp", FechaBackup, enBackup);
 
             var resultado = Armar().Restaurar(ruta, aceptaPerdida: true);
@@ -109,9 +109,9 @@ namespace Tests
         [Fact]
         public void BackupConAltaExterna_NoSeRestaura()
         {
-            var intrusa = Historia.Atributos.ToDictionary(a => a, a => (object?)$"{a}-externo");
+            var intrusa = Entidad.Atributos.ToDictionary(a => a, a => (object?)$"{a}-externo");
             intrusa["DVH"] = null;
-            enBackup.Tablas[Historia.Tabla].Add(intrusa);
+            enBackup.Tablas[Entidad.Tabla].Add(intrusa);
             var ruta = backupDAL.Agregar("IF_DB_20261001_120000.bkp", FechaBackup, enBackup);
 
             var resultado = Armar().Restaurar(ruta, aceptaPerdida: true);
@@ -123,7 +123,7 @@ namespace Tests
         [Fact]
         public void BackupConBajaExterna_NoSeRestaura()
         {
-            enBackup.Tablas[Historia.Tabla].RemoveAt(0);
+            enBackup.Tablas[Entidad.Tabla].RemoveAt(0);
             var ruta = backupDAL.Agregar("IF_DB_20261001_120000.bkp", FechaBackup, enBackup);
 
             var resultado = Armar().Restaurar(ruta, aceptaPerdida: true);
@@ -136,8 +136,8 @@ namespace Tests
         public void BackupViejo_SinAceptar_NoSeRestauraYInformaDesdeCuando()
         {
             // La base actual tiene 2 registros que el backup (consistente pero viejo) no contiene.
-            actual.AltaLegitima(Historia, 4);
-            actual.AltaLegitima(Historia, 5);
+            actual.AltaLegitima(Entidad, 4);
+            actual.AltaLegitima(Entidad, 5);
             var ruta = backupDAL.Agregar("IF_DB_20261001_120000.bkp", FechaBackup, enBackup);
             var bll = Armar();
 
@@ -148,7 +148,7 @@ namespace Tests
             Assert.True(validacion.Integridad.EsValido);
             Assert.True(validacion.HayPerdida);
             Assert.Equal(FechaBackup, validacion.PerdidaDesde);
-            Assert.Equal(2, validacion.Perdidas.Single(p => p.Tabla == Historia.Tabla).FilasQueSePierden);
+            Assert.Equal(2, validacion.Perdidas.Single(p => p.Tabla == Entidad.Tabla).FilasQueSePierden);
             Assert.Equal("msg.backup.perdidaDatos", resultado.MessageKey);
             Assert.Empty(backupDAL.Restaurados);
         }
@@ -156,7 +156,7 @@ namespace Tests
         [Fact]
         public void BackupViejo_AceptandoLaPerdida_Restaura()
         {
-            actual.AltaLegitima(Historia, 4);
+            actual.AltaLegitima(Entidad, 4);
             var ruta = backupDAL.Agregar("IF_DB_20261001_120000.bkp", FechaBackup, enBackup);
 
             var resultado = Armar().Restaurar(ruta, aceptaPerdida: true);
@@ -169,9 +169,9 @@ namespace Tests
         [Fact]
         public void FilaModificadaDespuesDelBackup_CuentaComoPerdida()
         {
-            actual.Tablas[Historia.Tabla][1]["Detail"] = "cambio posterior";
-            actual.Tablas[Historia.Tabla][1]["DVH"] = new DigitoVerificador().CalcularDVH(Historia, actual.Tablas[Historia.Tabla][1]);
-            actual.RecalcularDVV(Historia);
+            actual.Tablas[Entidad.Tabla][1]["Nombre"] = "cambio posterior";
+            actual.Tablas[Entidad.Tabla][1]["DVH"] = new DigitoVerificador().CalcularDVH(Entidad, actual.Tablas[Entidad.Tabla][1]);
+            actual.RecalcularDVV(Entidad);
             var ruta = backupDAL.Agregar("IF_DB_20261001_120000.bkp", FechaBackup, enBackup);
 
             var validacion = Armar().Validar(ruta);
@@ -229,14 +229,14 @@ namespace Tests
         [Fact]
         public void FilaBorradaFueraDeLaApp_SeInformaComoSoloEnBackup()
         {
-            actual.Tablas[Historia.Tabla].RemoveAt(2);
+            actual.Tablas[Entidad.Tabla].RemoveAt(2);
             var ruta = backupDAL.Agregar("IF_DB_20261001_120000.bkp", FechaBackup, enBackup);
 
             var validacion = Armar().Validar(ruta);
 
             var dif = Assert.Single(validacion.Diferencias);
             Assert.Equal(TipoDiferencia.SoloEnBackup, dif.Tipo);
-            Assert.Equal(Historia.Tabla, dif.Tabla);
+            Assert.Equal(Entidad.Tabla, dif.Tabla);
             Assert.Equal("Id-3", dif.Clave);
             Assert.Equal(1, validacion.Perdidas.Single().FilasQueSeRecuperan);
             Assert.False(validacion.HayPerdida);
@@ -245,7 +245,7 @@ namespace Tests
         [Fact]
         public void FilaModificadaFueraDeLaApp_InformaColumnaYValores()
         {
-            actual.Tablas[Historia.Tabla][1]["Detail"] = "alterado";
+            actual.Tablas[Entidad.Tabla][1]["Nombre"] = "alterado";
             var ruta = backupDAL.Agregar("IF_DB_20261001_120000.bkp", FechaBackup, enBackup);
 
             var validacion = Armar().Validar(ruta);
@@ -255,17 +255,17 @@ namespace Tests
             Assert.Equal("Id-2", dif.Clave);
             Assert.True(dif.FilaActualAdulterada);
             var cambio = Assert.Single(dif.Cambios);
-            Assert.Equal("Detail", cambio.Columna);
+            Assert.Equal("Nombre", cambio.Columna);
             Assert.Equal("alterado", cambio.ValorActual);
-            Assert.Equal("Detail-2", cambio.ValorBackup);
+            Assert.Equal("Nombre-2", cambio.ValorBackup);
         }
 
         [Fact]
         public void FilaModificadaLegitimamente_NoSeMarcaComoAdulterada()
         {
-            actual.Tablas[Historia.Tabla][1]["Detail"] = "cambio posterior";
-            actual.Tablas[Historia.Tabla][1]["DVH"] = new DigitoVerificador().CalcularDVH(Historia, actual.Tablas[Historia.Tabla][1]);
-            actual.RecalcularDVV(Historia);
+            actual.Tablas[Entidad.Tabla][1]["Nombre"] = "cambio posterior";
+            actual.Tablas[Entidad.Tabla][1]["DVH"] = new DigitoVerificador().CalcularDVH(Entidad, actual.Tablas[Entidad.Tabla][1]);
+            actual.RecalcularDVV(Entidad);
             var ruta = backupDAL.Agregar("IF_DB_20261001_120000.bkp", FechaBackup, enBackup);
 
             var dif = Assert.Single(Armar().Validar(ruta).Diferencias);
@@ -276,9 +276,9 @@ namespace Tests
         [Fact]
         public void AltaExterna_SeInformaComoSoloEnActualYAdulterada()
         {
-            var intrusa = Historia.Atributos.ToDictionary(a => a, a => (object?)$"{a}-externo");
+            var intrusa = Entidad.Atributos.ToDictionary(a => a, a => (object?)$"{a}-externo");
             intrusa["DVH"] = null;
-            actual.Tablas[Historia.Tabla].Add(intrusa);
+            actual.Tablas[Entidad.Tabla].Add(intrusa);
             var ruta = backupDAL.Agregar("IF_DB_20261001_120000.bkp", FechaBackup, enBackup);
 
             var dif = Assert.Single(Armar().Validar(ruta).Diferencias);
@@ -292,9 +292,9 @@ namespace Tests
         public void DiferenciaConFecha_InformaElMomentoDelRegistro()
         {
             var fecha = new DateTime(2026, 9, 30, 22, 15, 0);
-            var fila = actual.Tablas[Historia.Tabla][0];
-            fila["EventAt"] = fecha;
-            fila["Detail"] = "alterado";
+            var fila = actual.Tablas[Entidad.Tabla][0];
+            fila[Entidad.ColumnaFecha!] = fecha;
+            fila["Nombre"] = "alterado";
             var ruta = backupDAL.Agregar("IF_DB_20261001_120000.bkp", FechaBackup, enBackup);
 
             var dif = Assert.Single(Armar().Validar(ruta).Diferencias);
@@ -324,7 +324,7 @@ namespace Tests
         [Fact]
         public void BaseCorrupta_NoGeneraBackup()
         {
-            actual.Tablas[Historia.Tabla].RemoveAt(2);
+            actual.Tablas[Entidad.Tabla].RemoveAt(2);
 
             var resultado = Armar().GenerarBackup();
 
@@ -337,7 +337,7 @@ namespace Tests
         {
             // El resultado de arranque dice "íntegra", pero la base se alteró después: se reverifica.
             IntegridadManager.Establecer(new ResultadoIntegridad());
-            actual.Tablas[Historia.Tabla][0]["Detail"] = "alterado";
+            actual.Tablas[Entidad.Tabla][0]["Nombre"] = "alterado";
 
             var resultado = Armar().GenerarBackup();
 

@@ -19,6 +19,9 @@ namespace BE.Entity
 
         /// <summary>T07: generar un backup.</summary>
         public const string RealizarBackup = "REALIZAR_BACKUP";
+
+        /// <summary>T06b: ABM de productos, ver su historial y restaurar una versión anterior.</summary>
+        public const string GestionarProductos = "GESTIONAR_PRODUCTOS";
     }
 
     /// <summary>Nombres de los roles sembrados que el sistema referencia.</summary>

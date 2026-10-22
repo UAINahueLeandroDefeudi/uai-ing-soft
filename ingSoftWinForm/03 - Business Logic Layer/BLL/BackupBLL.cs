@@ -139,7 +139,7 @@ namespace BLL
                                 Tabla = entidad.Tabla,
                                 Clave = clave,
                                 Tipo = TipoDiferencia.SoloEnActual,
-                                FechaRegistro = FechaDe(fila),
+                                FechaRegistro = entidad.FechaDe(fila),
                                 FilaActualAdulterada = adulterada
                             });
                         }
@@ -155,7 +155,7 @@ namespace BLL
                                 validacion.Diferencias.Add(Modificada(entidad, clave, fila, filaBackup, cambios, adulterada));
                         }
 
-                        var fecha = FechaDe(fila);
+                        var fecha = entidad.FechaDe(fila);
                         if (fecha != null && (validacion.UltimoCambioActual == null || fecha > validacion.UltimoCambioActual))
                             validacion.UltimoCambioActual = fecha;
                     }
@@ -169,7 +169,7 @@ namespace BLL
                             Tabla = entidad.Tabla,
                             Clave = clave,
                             Tipo = TipoDiferencia.SoloEnBackup,
-                            FechaRegistro = FechaDe(filaBackup)
+                            FechaRegistro = entidad.FechaDe(filaBackup)
                         });
                     }
 
@@ -179,9 +179,6 @@ namespace BLL
                 return validacion;
             });
         }
-
-        private static DateTime? FechaDe(IReadOnlyDictionary<string, object?> fila)
-            => fila.TryGetValue("EventAt", out var fecha) && fecha is DateTime evento ? evento : null;
 
         /// <summary>Detalle columna por columna; si ninguna difiere, lo que cambió es el propio DVH.</summary>
         private static List<CambioColumna> CambiosEntre(EntidadVerificable entidad,
@@ -210,7 +207,7 @@ namespace BLL
                 Tabla = entidad.Tabla,
                 Clave = clave,
                 Tipo = TipoDiferencia.Modificada,
-                FechaRegistro = FechaDe(actual) ?? FechaDe(backup),
+                FechaRegistro = entidad.FechaDe(actual) ?? entidad.FechaDe(backup),
                 FilaActualAdulterada = adulterada
             };
             diferencia.Cambios.AddRange(cambios);

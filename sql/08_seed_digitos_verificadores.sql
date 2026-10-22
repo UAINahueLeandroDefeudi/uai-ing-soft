@@ -2,7 +2,7 @@
    T07 - Carga inicial de digitos verificadores (UNA SOLA VEZ)
    Base: IF_DB   (ejecutar despues de 07_create_digitos_verificadores.sql)
 
-   Calcula el DVH de cada fila de [UserHistory] y [User_Permission] y el DVV de
+   Calcula el DVH de cada fila de [Producto], [Producto_Historial] y [User_Permission] y el DVV de
    cada tabla sobre los datos que existen AHORA, que se dan por validos.
    La app no tiene ninguna accion para generar digitos verificadores.
 
@@ -28,12 +28,39 @@ SET ANSI_NULLS ON;
 SET QUOTED_IDENTIFIER ON;
 GO
 
-/* ---------- [UserHistory]: Id, UserId, Username, EventType, Success, FailedAttempts,
-                              FieldName, OldValue, NewValue, Detail, EventAt ---------- */
+/* ---------- [Producto]: Id, Codigo, Nombre, Descripcion, Precio, Stock, Activo, Version, FechaModificacion ---------- */
+
+UPDATE p
+SET [DVH] = CONVERT(CHAR(64), HASHBYTES('SHA2_256', CONCAT(
+        N'Producto',
+        CASE WHEN c1.v IS NULL THEN N'|1:N' ELSE CONCAT(N'|1:', DATALENGTH(c1.v) / 2, N':', c1.v) END,
+        CASE WHEN c2.v IS NULL THEN N'|2:N' ELSE CONCAT(N'|2:', DATALENGTH(c2.v) / 2, N':', c2.v) END,
+        CASE WHEN c3.v IS NULL THEN N'|3:N' ELSE CONCAT(N'|3:', DATALENGTH(c3.v) / 2, N':', c3.v) END,
+        CASE WHEN c4.v IS NULL THEN N'|4:N' ELSE CONCAT(N'|4:', DATALENGTH(c4.v) / 2, N':', c4.v) END,
+        CASE WHEN c5.v IS NULL THEN N'|5:N' ELSE CONCAT(N'|5:', DATALENGTH(c5.v) / 2, N':', c5.v) END,
+        CASE WHEN c6.v IS NULL THEN N'|6:N' ELSE CONCAT(N'|6:', DATALENGTH(c6.v) / 2, N':', c6.v) END,
+        CASE WHEN c7.v IS NULL THEN N'|7:N' ELSE CONCAT(N'|7:', DATALENGTH(c7.v) / 2, N':', c7.v) END,
+        CASE WHEN c8.v IS NULL THEN N'|8:N' ELSE CONCAT(N'|8:', DATALENGTH(c8.v) / 2, N':', c8.v) END,
+        CASE WHEN c9.v IS NULL THEN N'|9:N' ELSE CONCAT(N'|9:', DATALENGTH(c9.v) / 2, N':', c9.v) END
+    )), 2)
+FROM [dbo].[Producto] p
+CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), p.[Id])))                     c1(v)
+CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), p.[Codigo])))                 c2(v)
+CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), p.[Nombre])))                 c3(v)
+CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), p.[Descripcion])))            c4(v)
+CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), p.[Precio])))                 c5(v)
+CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), p.[Stock])))                  c6(v)
+CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), p.[Activo])))                 c7(v)
+CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), p.[Version])))                c8(v)
+CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), p.[FechaModificacion], 126))) c9(v);
+GO
+
+/* ---------- [Producto_Historial]: Id, ProductoId, Version, Codigo, Nombre, Descripcion,
+                                     Precio, Stock, Activo, Operacion, EventAt, EventBy ---------- */
 
 UPDATE h
 SET [DVH] = CONVERT(CHAR(64), HASHBYTES('SHA2_256', CONCAT(
-        N'UserHistory',
+        N'Producto_Historial',
         CASE WHEN c1.v  IS NULL THEN N'|1:N'  ELSE CONCAT(N'|1:',  DATALENGTH(c1.v)  / 2, N':', c1.v)  END,
         CASE WHEN c2.v  IS NULL THEN N'|2:N'  ELSE CONCAT(N'|2:',  DATALENGTH(c2.v)  / 2, N':', c2.v)  END,
         CASE WHEN c3.v  IS NULL THEN N'|3:N'  ELSE CONCAT(N'|3:',  DATALENGTH(c3.v)  / 2, N':', c3.v)  END,
@@ -44,20 +71,22 @@ SET [DVH] = CONVERT(CHAR(64), HASHBYTES('SHA2_256', CONCAT(
         CASE WHEN c8.v  IS NULL THEN N'|8:N'  ELSE CONCAT(N'|8:',  DATALENGTH(c8.v)  / 2, N':', c8.v)  END,
         CASE WHEN c9.v  IS NULL THEN N'|9:N'  ELSE CONCAT(N'|9:',  DATALENGTH(c9.v)  / 2, N':', c9.v)  END,
         CASE WHEN c10.v IS NULL THEN N'|10:N' ELSE CONCAT(N'|10:', DATALENGTH(c10.v) / 2, N':', c10.v) END,
-        CASE WHEN c11.v IS NULL THEN N'|11:N' ELSE CONCAT(N'|11:', DATALENGTH(c11.v) / 2, N':', c11.v) END
+        CASE WHEN c11.v IS NULL THEN N'|11:N' ELSE CONCAT(N'|11:', DATALENGTH(c11.v) / 2, N':', c11.v) END,
+        CASE WHEN c12.v IS NULL THEN N'|12:N' ELSE CONCAT(N'|12:', DATALENGTH(c12.v) / 2, N':', c12.v) END
     )), 2)
-FROM [dbo].[UserHistory] h
-CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), h.[Id])))             c1(v)
-CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), h.[UserId])))         c2(v)
-CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), h.[Username])))       c3(v)
-CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), h.[EventType])))      c4(v)
-CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), h.[Success])))        c5(v)
-CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), h.[FailedAttempts]))) c6(v)
-CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), h.[FieldName])))      c7(v)
-CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), h.[OldValue])))       c8(v)
-CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), h.[NewValue])))       c9(v)
-CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), h.[Detail])))         c10(v)
-CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), h.[EventAt], 126)))   c11(v);
+FROM [dbo].[Producto_Historial] h
+CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), h.[Id])))           c1(v)
+CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), h.[ProductoId])))   c2(v)
+CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), h.[Version])))      c3(v)
+CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), h.[Codigo])))       c4(v)
+CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), h.[Nombre])))       c5(v)
+CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), h.[Descripcion])))  c6(v)
+CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), h.[Precio])))       c7(v)
+CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), h.[Stock])))        c8(v)
+CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), h.[Activo])))       c9(v)
+CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), h.[Operacion])))    c10(v)
+CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), h.[EventAt], 126))) c11(v)
+CROSS APPLY (VALUES (CONVERT(NVARCHAR(MAX), h.[EventBy])))      c12(v);
 GO
 
 /* ---------- [User_Permission]: UserId, PermissionId ---------- */
@@ -75,16 +104,25 @@ GO
 
 /* ---------- DVV por tabla (clave = valores de la PK unidos por ':') ---------- */
 
-DELETE FROM [dbo].[DigitoVerificador] WHERE [Tabla] IN (N'UserHistory', N'User_Permission');
+DELETE FROM [dbo].[DigitoVerificador] WHERE [Tabla] IN (N'Producto', N'Producto_Historial', N'User_Permission');
 
 INSERT INTO [dbo].[DigitoVerificador] ([Tabla], [DVV], [FechaCalculo])
-SELECT N'UserHistory',
+SELECT N'Producto',
        CONVERT(CHAR(64), HASHBYTES('SHA2_256', CONCAT(
-           N'UserHistory|', COUNT(*),
+           N'Producto|', COUNT(*),
            ISNULL(STRING_AGG(CONVERT(NVARCHAR(MAX), CONCAT(N'|', k.[Clave], N'=', ISNULL(k.[DVH], N''))), N'')
                   WITHIN GROUP (ORDER BY k.[Clave] COLLATE Latin1_General_BIN2), N''))), 2),
        SYSDATETIME()
-FROM (SELECT CONVERT(NVARCHAR(MAX), h.[Id]) AS [Clave], h.[DVH] FROM [dbo].[UserHistory] h) k;
+FROM (SELECT CONVERT(NVARCHAR(MAX), p.[Id]) AS [Clave], p.[DVH] FROM [dbo].[Producto] p) k;
+
+INSERT INTO [dbo].[DigitoVerificador] ([Tabla], [DVV], [FechaCalculo])
+SELECT N'Producto_Historial',
+       CONVERT(CHAR(64), HASHBYTES('SHA2_256', CONCAT(
+           N'Producto_Historial|', COUNT(*),
+           ISNULL(STRING_AGG(CONVERT(NVARCHAR(MAX), CONCAT(N'|', k.[Clave], N'=', ISNULL(k.[DVH], N''))), N'')
+                  WITHIN GROUP (ORDER BY k.[Clave] COLLATE Latin1_General_BIN2), N''))), 2),
+       SYSDATETIME()
+FROM (SELECT CONVERT(NVARCHAR(MAX), h.[Id]) AS [Clave], h.[DVH] FROM [dbo].[Producto_Historial] h) k;
 
 INSERT INTO [dbo].[DigitoVerificador] ([Tabla], [DVV], [FechaCalculo])
 SELECT N'User_Permission',

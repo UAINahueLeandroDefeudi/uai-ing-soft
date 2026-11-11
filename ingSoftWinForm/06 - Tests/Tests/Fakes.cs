@@ -16,13 +16,24 @@ namespace Tests
             => Registros;
     }
 
+    /// <summary>
+    /// Usuarios en memoria. Como la DAL real, el alta deja la versión 1 (Alta) en el historial y cada
+    /// <see cref="Update"/> aplica los seis campos versionados, sube la Version y copia una fila al
+    /// historial; si la Version recibida no es la guardada (o <see cref="SimularCambioConcurrente"/>)
+    /// devuelve false sin escribir. GetById/GetAll devuelven copias: modificar lo leído no toca lo guardado.
+    /// </summary>
     public class FakeUserDAL : IUserDAL
     {
         public List<User> Users { get; } = new();
         public List<(User User, string Role)> Inserted { get; } = new();
+        public List<UserHistory> Historial { get; } = new();
+
+        /// <summary>Simula que otro usuario guardó una versión después de que se leyó el usuario.</summary>
+        public bool SimularCambioConcurrente { get; set; }
 
         public User? GetByUsername(string username) => Users.FirstOrDefault(u => u.Username == username);
-        public List<User> GetAll() => Users;
+        public User? GetById(Guid id) => Users.Where(u => u.Id == id).Select(CopiaVersionada).FirstOrDefault();
+        public List<User> GetAll() => Users.Select(CopiaVersionada).ToList();
         public bool EmailExists(string email) => Users.Any(u => u.Email == email);
         public bool Block(string username) => true;
         public void IncrementFailedAttempts(string username) { }
@@ -30,9 +41,79 @@ namespace Tests
 
         public void Insert(User user, string roleName)
         {
+            user.Version = 1;
             Users.Add(user);
             Inserted.Add((user, roleName));
+            Registrar(user, TipoCambioUsuario.Alta, null, user.Id);
         }
+
+        /// <summary>Agrega un usuario ya existente con su versión 1 (Alta) en el historial, sin pasar por Insert.</summary>
+        public User Sembrar(User user)
+        {
+            user.Version = 1;
+            Users.Add(user);
+            Registrar(user, TipoCambioUsuario.Alta, null, user.Id);
+            return user;
+        }
+
+        public List<UserHistory> GetHistory(Guid userId)
+            => Historial.Where(h => h.UserId == userId).OrderBy(h => h.Version).ToList();
+
+        public bool Update(User user, TipoCambioUsuario tipo, Guid eventBy, int? restauradaDesde = null)
+        {
+            var guardado = Users.Single(u => u.Id == user.Id);
+            if (SimularCambioConcurrente || guardado.Version != user.Version) return false;
+
+            guardado.NickName = user.NickName;
+            guardado.FirstName = user.FirstName;
+            guardado.LastName = user.LastName;
+            guardado.Pais = user.Pais;
+            guardado.Provincia = user.Provincia;
+            guardado.Direccion = user.Direccion;
+            guardado.Version++;
+            user.Version = guardado.Version;
+
+            Registrar(guardado, tipo, restauradaDesde, eventBy);
+            return true;
+        }
+
+        private void Registrar(User u, TipoCambioUsuario tipo, int? restauradaDesde, Guid eventBy)
+            => Historial.Add(new UserHistory
+            {
+                Id = Historial.Count + 1,
+                UserId = u.Id,
+                Version = u.Version,
+                NickName = u.NickName,
+                FirstName = u.FirstName,
+                LastName = u.LastName,
+                Pais = u.Pais,
+                Provincia = u.Provincia,
+                Direccion = u.Direccion,
+                TipoCambio = tipo,
+                RestauradaDesde = restauradaDesde,
+                EventAt = DateTime.Now,
+                EventBy = eventBy,
+                EventByUsername = Users.FirstOrDefault(x => x.Id == eventBy)?.Username ?? string.Empty
+            });
+
+        private static User CopiaVersionada(User u) => new()
+        {
+            Id = u.Id,
+            Username = u.Username,
+            PasswordHash = u.PasswordHash,
+            Salt = u.Salt,
+            NickName = u.NickName,
+            FirstName = u.FirstName,
+            LastName = u.LastName,
+            Pais = u.Pais,
+            Provincia = u.Provincia,
+            Direccion = u.Direccion,
+            Email = u.Email,
+            IsActive = u.IsActive,
+            IsBlocked = u.IsBlocked,
+            Version = u.Version,
+            Permissions = u.Permissions
+        };
     }
 
     public class FakePermissionDAL : IPermissionDAL
@@ -146,76 +227,6 @@ namespace Tests
         }
 
         public void SetUserIdioma(Guid userId, int idIdioma) => IdiomaPorUsuario[userId] = idIdioma;
-    }
-
-    /// <summary>T06b: productos en memoria; como la DAL real, cada escritura copia la fila completa al historial.</summary>
-    public class FakeProductoDAL : IProductoDAL
-    {
-        private int ultimoId;
-
-        public List<Producto> Productos { get; } = new();
-        public List<ProductoHistorial> Historial { get; } = new();
-
-        /// <summary>Simula que otro usuario guardó una versión después de que se leyó el producto.</summary>
-        public bool SimularCambioConcurrente { get; set; }
-
-        public List<Producto> GetAll() => Productos.Select(Copia).ToList();
-        public Producto? GetById(int id) => Productos.Where(p => p.Id == id).Select(Copia).FirstOrDefault();
-        public Producto? GetByCodigo(string codigo) => Productos.Where(p => p.Codigo == codigo).Select(Copia).FirstOrDefault();
-
-        public List<ProductoHistorial> GetHistorial(int productoId)
-            => Historial.Where(h => h.ProductoId == productoId).OrderByDescending(h => h.Version).ToList();
-
-        public void Insert(Producto producto, Guid eventBy)
-        {
-            producto.Id = ++ultimoId;
-            producto.Version = 1;
-            producto.FechaModificacion = DateTime.Now;
-            Productos.Add(Copia(producto));
-            Registrar(producto, OperacionProducto.Alta, eventBy);
-        }
-
-        public bool Update(Producto producto, OperacionProducto operacion, Guid eventBy)
-        {
-            var guardado = Productos.Single(p => p.Id == producto.Id);
-            if (SimularCambioConcurrente || guardado.Version != producto.Version) return false;
-
-            producto.Version++;
-            producto.FechaModificacion = DateTime.Now;
-            Productos[Productos.IndexOf(guardado)] = Copia(producto);
-            Registrar(producto, operacion, eventBy);
-            return true;
-        }
-
-        private void Registrar(Producto p, OperacionProducto operacion, Guid eventBy)
-            => Historial.Add(new ProductoHistorial
-            {
-                Id = Historial.Count + 1,
-                ProductoId = p.Id,
-                Version = p.Version,
-                Codigo = p.Codigo,
-                Nombre = p.Nombre,
-                Descripcion = p.Descripcion,
-                Precio = p.Precio,
-                Stock = p.Stock,
-                Activo = p.Activo,
-                Operacion = operacion,
-                EventAt = p.FechaModificacion,
-                EventBy = eventBy
-            });
-
-        private static Producto Copia(Producto p) => new()
-        {
-            Id = p.Id,
-            Codigo = p.Codigo,
-            Nombre = p.Nombre,
-            Descripcion = p.Descripcion,
-            Precio = p.Precio,
-            Stock = p.Stock,
-            Activo = p.Activo,
-            Version = p.Version,
-            FechaModificacion = p.FechaModificacion
-        };
     }
 
     /// <summary>Suscriptor de prueba: guarda cada idioma que le notifican.</summary>

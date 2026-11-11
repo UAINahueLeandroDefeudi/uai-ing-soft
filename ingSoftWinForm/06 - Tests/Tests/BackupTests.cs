@@ -46,7 +46,7 @@ namespace Tests
     [Collection("Session")]
     public class BackupTests : IDisposable
     {
-        private static readonly EntidadVerificable Entidad = EntidadesVerificables.Producto;
+        private static readonly EntidadVerificable Entidad = EntidadesVerificables.UserHistory;
         private static readonly DateTime FechaBackup = new(2026, 10, 1, 12, 0, 0);
 
         private readonly FakeBackupDAL backupDAL = new();
@@ -96,7 +96,7 @@ namespace Tests
         [Fact]
         public void BackupConFilaModificada_NoSeRestaura()
         {
-            enBackup.Tablas[Entidad.Tabla][0]["Nombre"] = "alterado";
+            enBackup.Tablas[Entidad.Tabla][0]["FirstName"] = "alterado";
             var ruta = backupDAL.Agregar("IF_DB_20261001_120000.bkp", FechaBackup, enBackup);
 
             var resultado = Armar().Restaurar(ruta, aceptaPerdida: true);
@@ -169,7 +169,7 @@ namespace Tests
         [Fact]
         public void FilaModificadaDespuesDelBackup_CuentaComoPerdida()
         {
-            actual.Tablas[Entidad.Tabla][1]["Nombre"] = "cambio posterior";
+            actual.Tablas[Entidad.Tabla][1]["FirstName"] = "cambio posterior";
             actual.Tablas[Entidad.Tabla][1]["DVH"] = new DigitoVerificador().CalcularDVH(Entidad, actual.Tablas[Entidad.Tabla][1]);
             actual.RecalcularDVV(Entidad);
             var ruta = backupDAL.Agregar("IF_DB_20261001_120000.bkp", FechaBackup, enBackup);
@@ -245,7 +245,7 @@ namespace Tests
         [Fact]
         public void FilaModificadaFueraDeLaApp_InformaColumnaYValores()
         {
-            actual.Tablas[Entidad.Tabla][1]["Nombre"] = "alterado";
+            actual.Tablas[Entidad.Tabla][1]["FirstName"] = "alterado";
             var ruta = backupDAL.Agregar("IF_DB_20261001_120000.bkp", FechaBackup, enBackup);
 
             var validacion = Armar().Validar(ruta);
@@ -255,15 +255,15 @@ namespace Tests
             Assert.Equal("Id-2", dif.Clave);
             Assert.True(dif.FilaActualAdulterada);
             var cambio = Assert.Single(dif.Cambios);
-            Assert.Equal("Nombre", cambio.Columna);
+            Assert.Equal("FirstName", cambio.Columna);
             Assert.Equal("alterado", cambio.ValorActual);
-            Assert.Equal("Nombre-2", cambio.ValorBackup);
+            Assert.Equal("FirstName-2", cambio.ValorBackup);
         }
 
         [Fact]
         public void FilaModificadaLegitimamente_NoSeMarcaComoAdulterada()
         {
-            actual.Tablas[Entidad.Tabla][1]["Nombre"] = "cambio posterior";
+            actual.Tablas[Entidad.Tabla][1]["FirstName"] = "cambio posterior";
             actual.Tablas[Entidad.Tabla][1]["DVH"] = new DigitoVerificador().CalcularDVH(Entidad, actual.Tablas[Entidad.Tabla][1]);
             actual.RecalcularDVV(Entidad);
             var ruta = backupDAL.Agregar("IF_DB_20261001_120000.bkp", FechaBackup, enBackup);
@@ -294,7 +294,7 @@ namespace Tests
             var fecha = new DateTime(2026, 9, 30, 22, 15, 0);
             var fila = actual.Tablas[Entidad.Tabla][0];
             fila[Entidad.ColumnaFecha!] = fecha;
-            fila["Nombre"] = "alterado";
+            fila["FirstName"] = "alterado";
             var ruta = backupDAL.Agregar("IF_DB_20261001_120000.bkp", FechaBackup, enBackup);
 
             var dif = Assert.Single(Armar().Validar(ruta).Diferencias);
@@ -337,7 +337,7 @@ namespace Tests
         {
             // El resultado de arranque dice "íntegra", pero la base se alteró después: se reverifica.
             IntegridadManager.Establecer(new ResultadoIntegridad());
-            actual.Tablas[Entidad.Tabla][0]["Nombre"] = "alterado";
+            actual.Tablas[Entidad.Tabla][0]["FirstName"] = "alterado";
 
             var resultado = Armar().GenerarBackup();
 

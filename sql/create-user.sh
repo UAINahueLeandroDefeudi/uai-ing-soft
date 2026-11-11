@@ -165,6 +165,17 @@ BEGIN
     VALUES
         ($u_sql, 0x$HASH_HEX, 0x$SALT_HEX, $f_sql, $l_sql, $e_sql, 'seed');
 $ROLE_ASSIGN_SQL
+    -- Control de cambios: version 1 (Alta) del usuario, si la base ya tiene [User_History]. SQL dinamico para que
+    -- el script siga andando en una base sin migrar (sin las columnas nuevas de [User]). Sin DVH, como el rol.
+    IF OBJECT_ID('[dbo].[User_History]', 'U') IS NOT NULL
+        EXEC sp_executesql
+            N'INSERT INTO [dbo].[User_History]
+                  ([UserId], [Version], [NickName], [FirstName], [LastName], [Pais], [Provincia], [Direccion],
+                   [TipoCambio], [RestauradaDesde], [EventAt], [EventBy])
+              SELECT [Id], [Version], [NickName], [FirstName], [LastName], [Pais], [Provincia], [Direccion],
+                     N''Alta'', NULL, [CreatedAt], [Id]
+              FROM [dbo].[User] WHERE [Username] = @Username;',
+            N'@Username NVARCHAR(50)', @Username = $u_sql;
 END
 SQL
 

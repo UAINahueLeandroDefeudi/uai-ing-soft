@@ -43,18 +43,15 @@ namespace BE.Entity
     /// <summary>Registro de las tablas verificables del sistema.</summary>
     public static class EntidadesVerificables
     {
-        public static readonly EntidadVerificable Producto = new(
-            "Producto",
+        /// <summary>
+        /// Control de cambios de usuarios: copia de los seis campos versionados en cada versión,
+        /// con quién (EventBy) y cuándo (EventAt).
+        /// </summary>
+        public static readonly EntidadVerificable UserHistory = new(
+            "User_History",
             ["Id"],
-            ["Id", "Codigo", "Nombre", "Descripcion", "Precio", "Stock", "Activo", "Version", "FechaModificacion"],
-            "FechaModificacion");
-
-        /// <summary>T06b: copia completa del producto en cada versión, con quién (EventBy) y cuándo (EventAt).</summary>
-        public static readonly EntidadVerificable ProductoHistorial = new(
-            "Producto_Historial",
-            ["Id"],
-            ["Id", "ProductoId", "Version", "Codigo", "Nombre", "Descripcion", "Precio", "Stock", "Activo",
-             "Operacion", "EventAt", "EventBy"],
+            ["Id", "UserId", "Version", "NickName", "FirstName", "LastName", "Pais", "Provincia", "Direccion",
+             "TipoCambio", "RestauradaDesde", "EventAt", "EventBy"],
             "EventAt");
 
         public static readonly EntidadVerificable UserPermission = new(
@@ -63,6 +60,6 @@ namespace BE.Entity
             ["UserId", "PermissionId"]);
 
         /// <summary>Agregar acá cada tabla nueva a proteger.</summary>
-        public static IReadOnlyList<EntidadVerificable> Todas { get; } = [Producto, ProductoHistorial, UserPermission];
+        public static IReadOnlyList<EntidadVerificable> Todas { get; } = [UserHistory, UserPermission];
     }
 }

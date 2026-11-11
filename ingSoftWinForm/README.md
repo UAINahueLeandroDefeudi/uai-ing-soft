@@ -3,7 +3,7 @@
 Aplicación WinForms (.NET 8) organizada en capas. Implementa el CU-01 *Iniciar
 sesión* (T02), la bitácora de auditoría (T06a), el hash de contraseñas (T03), la
 **gestión de perfiles de usuario con roles y permisos (T04, patrón Composite)** y el
-**control de cambios de productos (T06b)**.
+**control de cambios de usuarios (T06b)**.
 
 Este documento tiene un **[Quick start](#quick-start)** para levantar todo desde cero y
 después explica **la base de datos**, **cómo se crean los usuarios**, los **diagramas
@@ -55,8 +55,8 @@ sqlcmd -S localhost\SQLEXPRESS -E -C -Q "SELECT @@SERVERNAME"
 
 `sql/init-db.sh` crea `IF_DB` si no existe y después las tablas que falten: `[User]`,
 `[Bitacora]` y las de roles y permisos (`[Permission]`, `[Permission_Permission]`,
-`[User_Permission]`, con el catálogo y los roles sembrados), idiomas, productos con su
-historial (`[Producto]`, `[Producto_Historial]`) y los dígitos verificadores. Es **seguro de
+`[User_Permission]`, con el catálogo y los roles sembrados), idiomas, el control de cambios
+de usuarios (columnas nuevas de `[User]` y `[User_History]`) y los dígitos verificadores. Es **seguro de
 re-ejecutar y no borra datos**: si `[User]` ya existe no corre `01_create_table_User.sql`
 (que hace `DROP TABLE`). Al final muestra cuántas filas tiene cada tabla.
 
@@ -157,12 +157,12 @@ dotnet test "ingSoftWinForm/06 - Tests/Tests/Tests.csproj"
 | `03_create_table_Bitacora.sql` | Crea `[Bitacora]` si falta | No |
 | `04_init_create_roles_permission.sql` | Crea las tablas de roles/permisos si faltan y siembra el catálogo | No (idempotente) |
 | `05_create_idiomas.sql` | Crea `Idioma`, `Etiqueta`, `Traduccion` y `[User].IdIdioma` si faltan; siembra es/en (en incompleto) y el permiso `GESTIONAR_IDIOMAS`. Requiere `-f 65001` (UTF-8) | No (idempotente) |
-| `06_create_table_Producto.sql` | Crea `[Producto]` y `[Producto_Historial]` si faltan. Borra la tabla vieja `[UserHistory]` (y su DVV) si existe | Solo `[UserHistory]` |
-| `07_create_digitos_verificadores.sql` | Agrega `DVH` a `Producto`, `Producto_Historial` y `User_Permission` y crea `[DigitoVerificador]` | No (idempotente) |
+| `06_create_table_User_History.sql` | Agrega a `[User]` las columnas `NickName`, `Pais`, `Provincia`, `Direccion` y `Version`; crea `[User_History]` si falta y siembra la versión 1 (`Alta`) de cada usuario sin historial. Migración: elimina las tablas del ejemplo anterior (y sus DVV) | Solo esas tablas viejas |
+| `07_create_digitos_verificadores.sql` | Agrega `DVH` a `User_History` y `User_Permission` y crea `[DigitoVerificador]` | No (idempotente) |
 | `08_seed_digitos_verificadores.sql` | Calcula DVH/DVV de los datos actuales (una sola vez: `init-db.sh` no lo repite si ya hay DV) | Recalcula los DV |
 | `09_seed_etiquetas_integridad.sql` | Etiquetas es/en de integridad y backup | No (idempotente) |
 | `10_seed_permisos_backup.sql` | Siembra `GESTIONAR_BACKUP` y `REALIZAR_BACKUP` y los asigna al rol administrador | No (idempotente) |
-| `11_seed_productos.sql` | Siembra `GESTIONAR_PRODUCTOS` (rol administrador), etiquetas es/en de `FrmProductos` y el DVV inicial de las tablas de producto vacías | No (idempotente) |
+| `11_seed_user_history.sql` | Siembra `GESTIONAR_USUARIOS` (rol administrador) y las etiquetas es/en de `FrmUsuarios` / `FrmControlCambios`; calcula DVH/DVV de `User_History` si todavía no tiene. Migración: quita el permiso y las etiquetas del ejemplo anterior | No (idempotente) |
 
 ---
 
@@ -844,7 +844,7 @@ quedó descartado por requerir 5 tablas en lugar de 3.
 | `invitado` | `SESION_BASICA` (compuesto: `VER_MI_PERFIL` + `CERRAR_SESION`) |
 | `client` | `SESION_BASICA` + `VER_INICIO` |
 | `moderador` | lo del `client` + `VER_BITACORA` |
-| `administrador` | lo del `moderador` + `GESTIONAR_ROLES` + `ASIGNAR_ROLES_USUARIO` + `GESTIONAR_IDIOMAS` + `GESTIONAR_BACKUP` + `REALIZAR_BACKUP` + `GESTIONAR_PRODUCTOS` |
+| `administrador` | lo del `moderador` + `GESTIONAR_ROLES` + `ASIGNAR_ROLES_USUARIO` + `GESTIONAR_IDIOMAS` + `GESTIONAR_BACKUP` + `REALIZAR_BACKUP` + `GESTIONAR_USUARIOS` |
 
 `REALIZAR_BACKUP` habilita el menú *Backup* (`FrmBackup`, modal: espera a que termine y avisa éxito o falla; con la base corrupta no permite generar). `GESTIONAR_BACKUP` habilita restaurar/validar backups y es lo que permite entrar con la integridad comprometida. Se siembran con `sql/10_seed_permisos_backup.sql`.
 
@@ -945,24 +945,35 @@ Documentación: `docs/ERS - Especificación de Requerimientos Software/` → `CU
 
 ---
 
-## 12. Control de cambios de productos (T06b)
+## 12. Control de cambios de usuarios (T06b)
 
-`Producto` es la entidad de negocio elegida para el control de cambios (`User` no se usa: es una
-entidad técnica de seguridad). Menú *Productos* (`UI.Productos.FrmProductos`, permiso
-`GESTIONAR_PRODUCTOS`).
+La entidad con control de cambios es `User`, pero solo seis campos de negocio se versionan:
+`NickName`, `FirstName`, `LastName`, `Pais`, `Provincia` y `Direccion` (las cuatro columnas
+`NickName`, `Pais`, `Provincia` y `Direccion` son nuevas y opcionales). El `Username` de login no se
+versiona. Menú *Usuarios* (`UI.Usuarios.FrmUsuarios`, permiso `GESTIONAR_USUARIOS`), con el botón
+*Control de cambios* que abre `UI.Usuarios.FrmControlCambios`.
 
-- **Historial completo:** cada alta, modificación, baja o restauración copia la **fila completa** del
-  producto a `[Producto_Historial]` como una versión nueva, con `EventAt` (cuándo) y `EventBy` (quién).
-  No hay columnas de valor viejo / valor nuevo: lo que cambió se ve comparando versiones.
-- **Recomponer un estado anterior:** *Restaurar esta versión* vuelve a aplicar todos los datos de una
-  versión vieja como una versión **nueva** (operación `Restauracion`); el historial nunca se reescribe.
-- **Baja lógica:** `Activo = 0`. No se borran productos ni versiones.
-- **Atomicidad e integridad (T07):** `ProductoDAL` escribe producto, historial y los DVH/DVV de ambas
-  tablas en una sola transacción (`DigitoVerificadorDAL.Escribir`). Una versión alterada a mano se
+- **Historial:** cada alta, modificación o restauración copia esos seis campos a `[User_History]`
+  como una versión nueva (`Version`, `TipoCambio` = `Alta` / `Modificacion` / `Restauracion`), con
+  `EventAt` (cuándo) y `EventBy` (quién). `[User].Version` es la última versión. No hay columnas de
+  valor viejo / valor nuevo ni de "detalle": lo que cambió se **calcula en pantalla** comparando cada
+  versión con la anterior (`UserBLL.CompararVersiones` / `DescribirVersion`).
+- **Pantalla de control de cambios:** 1) lista de usuarios, 2) grilla del historial (versión, fecha y
+  hora, usuario que hizo el cambio, tipo de cambio y detalle: `Alta`, `Modificó: Nick, País` o
+  `Restauración de la versión N`) y 3) datos de la versión elegida contra la anterior, con **fondo
+  amarillo** en lo que cambió.
+- **Recomponer un estado anterior:** *Restaurar esta versión* (deshabilitado en la versión vigente)
+  vuelve a aplicar los seis campos de una versión vieja como una versión **nueva** (`Restauracion`,
+  con `RestauradaDesde` = N); el historial nunca se reescribe.
+- **Alta:** `UserDAL.Insert` escribe la versión 1 (`Alta`) junto con el usuario y su rol, en la misma
+  transacción.
+- **Atomicidad e integridad (T07):** `UserDAL.Update` escribe el usuario, la fila del historial y los
+  DVH/DVV en una sola transacción (`DigitoVerificadorDAL.Escribir`). Una versión alterada a mano se
   detecta al iniciar y en `FrmAlertaIntegridad` se ve con su fecha.
-- **Concurrencia:** el `UPDATE` filtra por `Version`; si otro usuario guardó antes, no se pisa nada.
+- **Concurrencia:** el `UPDATE` filtra por `Version`; si otro usuario guardó antes, no se pisa nada
+  (`msg.usuario.desactualizado`).
 
-Capas: `BE.Entity.Producto` / `ProductoHistorial`, `BE.Enum.OperacionProducto`, `DAL.ProductoDAL`,
-`BLL.ProductoBLL`, `UI.Productos.FrmProductos`. Scripts: `sql/06_create_table_Producto.sql` y
-`sql/11_seed_productos.sql`. Tests: `ProductoBLLTests`. Detalle y diagramas en
+Capas: `BE.Entity.User` / `UserHistory`, `BE.Enum.TipoCambioUsuario`, `DAL.UserDAL` (`IUserDAL`),
+`BLL.UserBLL`, `UI.Usuarios.FrmUsuarios` y `FrmControlCambios`. Scripts:
+`sql/06_create_table_User_History.sql` y `sql/11_seed_user_history.sql`. Detalle y diagramas en
 `docs/Detalle-tecnico-y-negocio.md`, sección 6.

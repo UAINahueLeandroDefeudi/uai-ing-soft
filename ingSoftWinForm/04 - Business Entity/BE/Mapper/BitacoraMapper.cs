@@ -15,7 +15,10 @@ namespace BE.Mapper
                 // Los tres enums se guardan por nombre y no por ordinal: la bitácora
                 // se consulta con un SELECT suelto y 'Critical' se lee, 4 no.
                 Type = System.Enum.Parse<BitacoraType>((string)row["Type"]),
-                NameEvent = System.Enum.Parse<NameEvent>((string)row["NameEvent"]),
+                // Un evento que ya no existe en el enum (fila vieja) se lee como EventoObsoleto.
+                NameEvent = System.Enum.TryParse<NameEvent>((string)row["NameEvent"], out var evento)
+                    ? evento
+                    : NameEvent.EventoObsoleto,
                 Priority = System.Enum.Parse<Priority>((string)row["Priority"]),
                 Detail = (string)row["Detail"],
                 BitacoraDate = (DateTime)row["BitacoraDate"],

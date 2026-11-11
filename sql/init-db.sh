@@ -9,8 +9,9 @@
 #   [Bitacora]                      03_create_table_Bitacora.sql    (solo si falta)
 #   [Permission], [Permission_Permission], [User_Permission]       04_init_create_roles_permission.sql
 #   [Idioma], [Etiqueta], [Traduccion]  05_create_idiomas.sql        (idempotente; siembra es/en, en incompleto)
-#   [Producto], [Producto_Historial] 06_create_table_Producto.sql   (idempotente; borra la vieja [UserHistory])
-#                                   (idempotente: crea lo que falta y resiembra sin duplicar)
+#   [User] (columnas NickName/Pais/Provincia/Direccion/Version) y [User_History]
+#                                   06_create_table_User_History.sql (idempotente; migra: elimina las tablas viejas
+#                                   del ejemplo anterior y siembra la version 1 de cada usuario)
 #
 # Uso:
 #   ./sql/init-db.sh
@@ -110,9 +111,9 @@ run_file "04_init_create_roles_permission.sql" >/dev/null
 echo "Idiomas: creando lo que falte y sembrando es/en ..."
 run_file "05_create_idiomas.sql" >/dev/null
 
-# Productos y su historial de cambios (T06b): idempotente, nunca se dropean.
-echo "Productos: creando lo que falte ..."
-run_file "06_create_table_Producto.sql" >/dev/null
+# Control de cambios de usuarios: columnas nuevas de [User] y [User_History]. Idempotente, nunca se dropean.
+echo "Control de cambios de usuarios: creando lo que falte ..."
+run_file "06_create_table_User_History.sql" >/dev/null
 
 # Digitos verificadores (T07): columnas DVH y tabla de control. Idempotente.
 echo "Digitos verificadores: creando lo que falte ..."
@@ -134,10 +135,10 @@ else
     echo "Digitos verificadores: ya cargados (no se recalculan)."
 fi
 
-# Productos (T06b): permiso, etiquetas y DVV inicial de las tablas vacias. Va despues de 08:
+# Control de cambios de usuarios: permiso, etiquetas y DVH/DVV iniciales de [User_History]. Va despues de 08:
 # si corriera antes, [DigitoVerificador] dejaria de estar vacia y 08 no se ejecutaria.
-echo "Productos: sembrando GESTIONAR_PRODUCTOS, etiquetas y DVV inicial ..."
-run_file "11_seed_productos.sql" >/dev/null
+echo "Control de cambios de usuarios: sembrando GESTIONAR_USUARIOS, etiquetas y digitos iniciales ..."
+run_file "11_seed_user_history.sql" >/dev/null
 
 echo
 echo "Listo. Estado de IF_DB:"
@@ -150,8 +151,7 @@ UNION ALL SELECT 'User_Permission',       COUNT(*) FROM [dbo].[User_Permission]
 UNION ALL SELECT 'Idioma',     COUNT(*) FROM [dbo].[Idioma]
 UNION ALL SELECT 'Etiqueta',   COUNT(*) FROM [dbo].[Etiqueta]
 UNION ALL SELECT 'Traduccion', COUNT(*) FROM [dbo].[Traduccion]
-UNION ALL SELECT 'Producto',   COUNT(*) FROM [dbo].[Producto]
-UNION ALL SELECT 'Producto_Historial', COUNT(*) FROM [dbo].[Producto_Historial];"
+UNION ALL SELECT 'User_History', COUNT(*) FROM [dbo].[User_History];"
 
 echo
 echo "Siguiente paso: crear un usuario y darle un rol, por ejemplo:"

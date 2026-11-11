@@ -10,6 +10,15 @@ namespace BE.Entity
         public string FirstName { get; set; } = string.Empty;
         public string LastName { get; set; } = string.Empty;
         public string? Email { get; set; }
+
+        // Campos con control de cambios (se versionan en [User_History]; el Username de login no).
+        public string? NickName { get; set; }
+        public string? Pais { get; set; }
+        public string? Provincia { get; set; }
+        public string? Direccion { get; set; }
+
+        /// <summary>Número de la última versión registrada en [User_History] (concurrencia optimista).</summary>
+        public int Version { get; set; } = 1;
         public int FailedAttempts { get; set; }
         public bool IsBlocked { get; set; }
         public bool IsActive { get; set; }

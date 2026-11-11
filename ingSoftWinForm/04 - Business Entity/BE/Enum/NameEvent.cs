@@ -27,9 +27,12 @@ namespace BE.Enum
         ErrorIntegridad = 19,
         GenerarBackup = 20,
         RestaurarBackup = 21,
-        CrearProducto = 22,
-        ModificarProducto = 23,
-        BajaProducto = 24,
-        RestaurarVersionProducto = 25
+        RestaurarVersionUsuario = 22,
+
+        /// <summary>
+        /// Solo para leer: filas de bitácora viejas cuyo evento ya no existe en el sistema. El evento se
+        /// guarda por nombre, así que un nombre desconocido no puede romper la lectura de la bitácora.
+        /// </summary>
+        EventoObsoleto = 99
     }
 }
